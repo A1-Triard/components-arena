@@ -86,6 +86,7 @@ pub unsafe trait ComponentImpl {
 
 pub unsafe trait Component {
     type Impl: ComponentImpl;
+    unsafe fn impl_type(self) -> Self::Impl;
 }
 
 #[derive(Derivative)]
@@ -208,24 +209,93 @@ impl<C: ComponentImpl> Deref for ComponentsTokenMutex<C> {
 #[cfg(feature="std")]
 #[macro_export]
 macro_rules! Component {
-    ((TOKEN_LOCK=$token_lock:ident, TOKEN=$token:ident, Index=$index:ty, Id=$id:ty) $(pub)* struct $name:ident
-        { $($tail:tt)* } ) => {
-        Component! {
-            @impl $name,
-            $id, $index, $token_lock, $token
-        }
+    ((Id=$id:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, Id=$id) $($y)* }
     };
-    /*
-    ((TOKEN_LOCK=$token_lock:ident, TOKEN=$token:ident, Index=$index:ty, Id=$id:ty, Generic=$generic:ident) $(pub)* struct $name:ident
+    ((Impl=$impl:ident, $($x:tt),*) $($y:tt)*) => {
+        Component! { ($($x)*, Impl=$impl) $($y)* }
+    };
+    ((TOKEN=$token:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, TOKEN=$token) $($y)* }
+    };
+    ((Index=$index:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, Index=$index) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Id=$id:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, $($x)*, Id=$id) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Impl=$impl:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, $($x)*, Impl=$impl) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, TOKEN=$token:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, $($x)*, TOKEN=$token) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, TOKEN=$token:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, Index=$index, $($x)*, TOKEN=$token) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Impl=$impl:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, Index=$index, $($x)*, Impl=$impl) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty, Impl=$impl:ident, TOKEN=$token:ident) $($y:tt)*) => {
+        Component! { ( TOKEN_LOCK=$token_lock, Index=$index, Id=$id, TOKEN=$token, Impl=$impl ) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty, TOKEN=$token:ident, Impl=$impl:ident)
+        $(pub $((crate))?)? struct $name:ident
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
         Component! {
-            @impl $name, $generic
-            $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?,
-            $(< $( $lt ),+ >)?,
-            $id, $index, $token_lock, $token
+            @impl $name, $id, $index, $token_lock, $token, $impl,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
         }
     };
-    */
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty, Impl=$impl:ident)
+        $(pub $((crate))?)? struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
+        Component! {
+            @impl $name, $id, $index, $token_lock, $impl,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty, TOKEN=$token:ident)
+        $(pub $((crate))?)? struct $name:ident
+        { $($tail:tt)* } ) => {
+        Component! {
+            @impl $name, $id, $index, $token_lock, $token
+        }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty)
+        $(pub $((crate))?)? struct $name:ident
+        { $($tail:tt)* } ) => {
+        Component! {
+            @impl $name, $id, $index, $token_lock
+        }
+    };
+    (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident) => {
+        static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
+        unsafe impl $crate::ComponentImpl for $name {
+            type Id = $id;
+            type Index = $index;
+            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
+        }
+        unsafe impl $crate::Component for $name {
+            type Impl = Self;
+            unsafe fn impl_type(self) -> Self { self }
+        }
+    };
+    (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
+        static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
+        struct $impl;
+        unsafe impl $crate::ComponentImpl for $impl {
+            type Id = $id;
+            type Index = $index;
+            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
+        }
+        unsafe impl< $g > $crate::Component for $name < $r > {
+            type Impl = impl $crate::ComponentImpl<Id=$id, Index=$index>;
+            unsafe fn impl_type(self) -> Self::Impl { $impl }
+        }
+    };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $token:ident) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
         static $token: $crate::ComponentsTokenMutex<$name> = $crate::ComponentsTokenMutex::new();
@@ -236,22 +306,85 @@ macro_rules! Component {
         }
         unsafe impl $crate::Component for $name {
             type Impl = Self;
+            unsafe fn impl_type(self) -> Self { self }
         }
     };
-    /*
-    (@impl $name:ident, $generic:ident, $(< $g:tt >)?, $(< $r:tt >)?, $id:ty, $index:ty, $token_lock:ident, $token:ident) => {
+    (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $token:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-        static $token: ::std::lazy::SyncLazy<RefCell<$crate::ComponentsToken<$generic>> =
-            ::std::lazy::SyncLazy::new(ComponentsToken::new);
-        struct $generic;
-        unsafe impl $crate::ComponentImpl for $generic {
+        static $token: $crate::ComponentsTokenMutex<$impl> = $crate::ComponentsTokenMutex::new();
+        struct $impl;
+        unsafe impl $crate::ComponentImpl for $impl {
             type Id = $id;
             type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token }
+            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
-        unsafe impl$(< $g >)? $crate::Component for $name $(< $r >)? {
-            type Impl = $generic;
+        unsafe impl< $g > $crate::Component for $name < $r > {
+            type Impl = impl $crate::ComponentImpl<Id=$id, Index=$index>;
+            unsafe fn impl_type(self) -> Self::Impl { $impl }
         }
     };
-    */
+}
+
+#[cfg(not(feature="std"))]
+#[macro_export]
+macro_rules! Component {
+    ((Id=$id:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, Id=$id) $($y)* }
+    };
+    ((Impl=$impl:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, Impl=$impl) $($y)* }
+    };
+    ((Index=$index:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { ($($x)*, Index=$index) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Id=$id:ty, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, $($x)*, Id=$id) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Impl=$impl:ident, $($x:tt)*) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, $($x)*, Impl=$impl) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Impl=$impl:ident, Id=$id:ty) $($y:tt)*) => {
+        Component! { (TOKEN_LOCK=$token_lock, Index=$index, Id=$id, Impl=$impl) $($y)* }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty, Impl=$impl:ident)
+        $(pub $((crate))?)? struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
+        Component! {
+            @impl $name, $id, $index, $token_lock, $impl,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((TOKEN_LOCK=$token_lock:ident, Index=$index:ty, Id=$id:ty)
+        $(pub $((crate))?)? struct $name:ident
+        { $($tail:tt)* } ) => {
+        Component! {
+            @impl $name, $id, $index, $token_lock
+        }
+    };
+    (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident) => {
+        static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
+        unsafe impl $crate::ComponentImpl for $name {
+            type Id = $id;
+            type Index = $index;
+            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
+        }
+        unsafe impl $crate::Component for $name {
+            type Impl = Self;
+            unsafe fn impl_type(self) -> Self { self }
+        }
+    };
+    (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
+        static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
+        struct $impl;
+        unsafe impl $crate::ComponentImpl for $impl {
+            type Id = $id;
+            type Index = $index;
+            fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
+        }
+        unsafe impl< $g > $crate::Component for $name < $r > {
+            type Impl = impl $crate::ComponentImpl<Id=$id, Index=$index>;
+            unsafe fn impl_type(self) -> Self::Impl { $impl }
+        }
+    };
 }
