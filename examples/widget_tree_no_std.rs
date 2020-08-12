@@ -11,7 +11,7 @@ mod widgets {
     use components_arena::{Components, Id, ComponentsToken};
 
     macro_attr! {
-        #[derive(Component!(TOKEN_LOCK=WIDGET_LOCK, Index=u16, Id=NonZeroU32))]
+        #[derive(Component!(token_lock=WIDGET_LOCK, index=u16, id=NonZeroU32))]
         struct WidgetData {
             parent: Option<Id<WidgetData>>,
             next: Id<WidgetData>,
