@@ -1,3 +1,4 @@
+#![no_std]
 #![feature(type_alias_impl_trait)]
 
 #[macro_use]
@@ -6,11 +7,11 @@ extern crate macro_attr;
 extern crate components_arena;
 
 mod widgets {
-    use std::num::NonZeroU32;
-    use components_arena::{Components, Id};
+    use core::num::NonZeroU32;
+    use components_arena::{Components, Id, ComponentsToken};
 
     macro_attr! {
-        #[derive(Component!(TOKEN=WIDGET, TOKEN_LOCK=WIDGET_LOCK, Index=u16, Id=NonZeroU32))]
+        #[derive(Component!(TOKEN_LOCK=WIDGET_LOCK, Index=u16, Id=NonZeroU32))]
         struct WidgetData {
             parent: Option<Id<WidgetData>>,
             next: Id<WidgetData>,
@@ -23,10 +24,16 @@ mod widgets {
         root: Id<WidgetData>,
     }
 
+    pub struct WidgetsToken(ComponentsToken<WidgetData>);
+
+    impl WidgetsToken {
+        pub fn new() -> Option<WidgetsToken> { ComponentsToken::new().map(WidgetsToken) }
+    }
+
     impl Widgets {
-        pub fn new() -> Widgets {
+        pub fn new(token: &mut WidgetsToken) -> Widgets {
             let mut arena = Components::new();
-            let root = arena.attach(&mut WIDGET.lock().unwrap(), |this| WidgetData {
+            let root = arena.attach(&mut token.0, |this| WidgetData {
                 parent: None, next: this, last_child: None
             });
             Widgets { arena, root }
@@ -39,8 +46,8 @@ mod widgets {
     pub struct Widget(Id<WidgetData>);
 
     impl Widget {
-        pub fn new(widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.attach(&mut WIDGET.lock().unwrap(), |this| WidgetData {
+        pub fn new(token: &mut WidgetsToken, widgets: &mut Widgets, parent: Widget) -> Widget {
+            let widget = widgets.arena.attach(&mut token.0, |this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
             if let Some(prev) = widgets.arena.get_mut(parent.0).unwrap().last_child.replace(widget) {
@@ -58,8 +65,8 @@ mod widgets {
 use widgets::*;
 
 fn main() {
-    let mut widgets = Widgets::new();
-    let widgets = &mut widgets;
-    let widget = Widget::new(widgets, widgets.root());
+    let token = &mut WidgetsToken::new().unwrap();
+    let widgets = &mut Widgets::new(token);
+    let widget = Widget::new(token, widgets, widgets.root());
     assert_eq!(widget.parent(widgets), Some(widgets.root()));
 }

@@ -18,40 +18,53 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::hint::unreachable_unchecked;
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
-use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::vec::Vec;
 #[cfg(feature="std")]
 use once_cell::sync::{self};
 #[cfg(feature="std")]
 use std::sync::Mutex;
+#[cfg(feature="std")]
+use std::ops::Deref;
 
 pub unsafe trait ComponentId: Debug + Copy + Eq + Hash + Ord {
     fn inc(this: Option<Self>) -> Option<Self>;
 }
 
 unsafe impl ComponentId for NonZeroU8 {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 unsafe impl ComponentId for NonZeroU16 {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 unsafe impl ComponentId for NonZeroU32 {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 unsafe impl ComponentId for NonZeroU64 {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 unsafe impl ComponentId for NonZeroU128 {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 unsafe impl ComponentId for NonZeroUsize {
-    fn inc(this: Option<Self>) -> Option<Self> { Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0) }
+    fn inc(this: Option<Self>) -> Option<Self> {
+        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
+    }
 }
 
 pub unsafe trait ComponentIndex: Debug + Copy + Eq + Hash + Ord + TryInto<usize> + TryFrom<usize> { }
@@ -194,7 +207,7 @@ pub struct ComponentsTokenMutex<C: ComponentImpl>(sync::Lazy<Mutex<ComponentsTok
 impl<C: ComponentImpl> ComponentsTokenMutex<C> {
     pub const fn new() -> Self {
         ComponentsTokenMutex(sync::Lazy::new(|| Mutex::new(
-            ComponentsToken::new().unwrap_or_else(|| unsafe { ::std::hint::unreachable_unchecked() })
+            ComponentsToken::new().unwrap_or_else(|| unsafe { unreachable_unchecked() })
         )))
     }
 }
