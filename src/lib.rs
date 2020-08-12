@@ -97,7 +97,7 @@ pub unsafe trait ComponentImpl {
     fn components_token_lock() -> &'static ComponentsTokenLock;
 }
 
-pub unsafe trait Component {
+pub trait Component {
     type Impl: ComponentImpl;
     /// # Safety
     /// This function should not be called at all. There are no circumstances when such call could be safe.
