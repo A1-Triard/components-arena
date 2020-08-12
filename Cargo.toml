@@ -1,8 +1,15 @@
 [package]
-name = "components-arena"
-version = "0.1.0"
-authors = ["Warlock <internalmike@gmail.com>"]
 edition = "2018"
+name = "components-arena"
+version = "0.0.1"
+authors = ["warlock <internalmike@gmail.com>"]
+description = "Simple library for creating complex domain-specific self-referential data structures."
+readme = "README.md"
+documentation = "https://docs.rs/components-arena/"
+keywords = ["tui", "ncurses", "notcurses", "screen"]
+categories = ["rust-patterns", "no-std"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/A1-Triard/components-arena"
 
 [features]
 default = ["std"]
