@@ -99,6 +99,8 @@ pub unsafe trait ComponentImpl {
 
 pub unsafe trait Component {
     type Impl: ComponentImpl;
+    /// # Safety
+    /// This function should not be called at all. There are no circumstances when such call could be safe.
     unsafe fn impl_type(self) -> Self::Impl;
 }
 
