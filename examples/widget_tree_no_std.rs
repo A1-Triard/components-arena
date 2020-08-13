@@ -9,7 +9,7 @@ extern crate components_arena;
 
 mod widgets {
     use core::num::NonZeroU32;
-    use components_arena::{Components, Id, ComponentsToken};
+    use components_arena::{Arena, Id, ComponentClassToken};
 
     macro_attr! {
         #[derive(Component!(index=u16, id=NonZeroU32))]
@@ -21,20 +21,20 @@ mod widgets {
     }
 
     pub struct Widgets {
-        arena: Components<WidgetData>,
+        arena: Arena<WidgetData>,
         root: Id<WidgetData>,
     }
 
-    pub struct WidgetsToken(ComponentsToken<WidgetData>);
+    pub struct WidgetsToken(ComponentClassToken<WidgetData>);
 
     impl WidgetsToken {
-        pub fn new() -> Option<WidgetsToken> { ComponentsToken::new().map(WidgetsToken) }
+        pub fn new() -> Option<WidgetsToken> { ComponentClassToken::new().map(WidgetsToken) }
     }
 
     impl Widgets {
         pub fn new(token: &mut WidgetsToken) -> Widgets {
-            let mut arena = Components::new();
-            let root = arena.attach(&mut token.0, |this| WidgetData {
+            let mut arena = Arena::new();
+            let root = arena.push(&mut token.0, |this| WidgetData {
                 parent: None, next: this, last_child: None
             });
             Widgets { arena, root }
@@ -48,7 +48,7 @@ mod widgets {
 
     impl Widget {
         pub fn new(token: &mut WidgetsToken, widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.attach(&mut token.0, |this| WidgetData {
+            let widget = widgets.arena.push(&mut token.0, |this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
             if let Some(prev) = widgets.arena.get_mut(parent.0).unwrap().last_child.replace(widget) {

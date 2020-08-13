@@ -114,21 +114,21 @@ unsafe impl ComponentIndex for u128 { }
 
 unsafe impl ComponentIndex for usize { }
 
-/// The return type of the `ComponentClass::components_token_lock` function.
+/// The return type of the `ComponentClass::component_class_lock` function.
 ///
 /// The `ComponentClass::component_token_lock` function
 /// is essential for components arena internal mechanic.
-pub struct ComponentsTokenLock(AtomicBool);
+pub struct ComponentClassLock(AtomicBool);
 
-impl ComponentsTokenLock {
-    /// Creates new `ComponentsTokenLock` instance.
+impl ComponentClassLock {
+    /// Creates new `ComponentClassLock` instance.
     ///
     /// The function is `const`, and can be used for static initialization.
-    pub const fn new() -> Self { ComponentsTokenLock(AtomicBool::new(false)) }
+    pub const fn new() -> Self { ComponentClassLock(AtomicBool::new(false)) }
 }
 
-impl Default for ComponentsTokenLock {
-    fn default() -> Self { ComponentsTokenLock::new() }
+impl Default for ComponentClassLock {
+    fn default() -> Self { ComponentClassLock::new() }
 }
 
 /// An utility trait describing a specific component type.
@@ -137,7 +137,7 @@ impl Default for ComponentsTokenLock {
 /// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
-/// an own `ComponentsTokenLock` instance for every specialization because Rust
+/// an own `ComponentClassLock` instance for every specialization because Rust
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
@@ -147,18 +147,18 @@ impl Default for ComponentsTokenLock {
 /// # Safety
 ///
 /// Correct safe implementation should return reference to the one and same
-/// `ComponentsTokenLock` instance from the `components_token_lock` function.
+/// `ComponentClassLock` instance from the `component_class_lock` function.
 ///
 /// Also it should be garanteed that no other `ComponentClass` implementation
-/// returns same `ComponentsTokenLock` instance.
+/// returns same `ComponentClassLock` instance.
 ///
 /// This requirements can be easaly satisfied with private static:
 ///
 /// ```rust
 /// unsafe impl ComponentClass for MyComponent {
-///     fn components_token_lock() -> &'static ComponentsTokenLock {
-///         static TOKEN_LOCK: ComponentsTokenLock = ComponentTokenLock::new();
-///         &TOKEN_LOCK
+///     fn component_class_lock() -> &'static ComponentClassLock {
+///         static CLASS_LOCK: ComponentClassLock = ComponentTokenLock::new();
+///         &CLASS_LOCK
 ///     }
 ///     // ...
 /// }
@@ -172,11 +172,11 @@ pub unsafe trait ComponentClass {
     type Id: ComponentId;
 
     /// Essential for components arena internal mechanic.
-    fn components_token_lock() -> &'static ComponentsTokenLock;
+    fn component_class_lock() -> &'static ComponentClassLock;
 }
 
 /// An implementor of the `Component` trait is a type, whose values can be placed into
-/// `Components` container.
+/// `Arena` container.
 pub trait Component {
     /// Component class.
     ///
@@ -196,32 +196,47 @@ pub struct Id<C: Component> {
     id: <<C as Component>::Class as ComponentClass>::Id,
 }
 
-/// The `Components` structure allows inserting and removing elements that are referred to by `Id`.
+/// Unordered container with random access.
+///
+/// Prevents incorrect access through deleted or foreign `Id`.
 #[derive(Debug)]
-pub struct Components<C: Component> {
+pub struct Arena<C: Component> {
     items: Vec<Option<(<<C as Component>::Class as ComponentClass>::Id, C)>>,
     vacancies: Vec<<<C as Component>::Class as ComponentClass>::Index>,
 }
 
-pub struct ComponentsToken<C: ComponentClass>(Option<C::Id>);
+/// Component class static shared data.
+///
+/// In the `std` environment can be stored inside static `ComponentClassMutex`:
+///
+/// ```rust
+/// static MY_COMPONENT: ComponentClassMutex<MyComponent = ComponentClassMutex::new();
+///
+/// // ...
+///
+/// let id = arena.push(&mut MY_COMPONENT.lock().unwrap() /*, ... */);
+/// ```
+///
+/// In `no_std` environment a custom solution should be used to store `ComponentClassToken`.
+pub struct ComponentClassToken<C: ComponentClass>(Option<C::Id>);
 
-impl<C: ComponentClass> ComponentsToken<C> {
-    pub fn new() -> Option<ComponentsToken<C>> {
-        let lock = C::components_token_lock();
+impl<C: ComponentClass> ComponentClassToken<C> {
+    pub fn new() -> Option<ComponentClassToken<C>> {
+        let lock = C::component_class_lock();
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentsToken(None))
+            Some(ComponentClassToken(None))
         }
     }
 }
 
-impl<C: Component> Components<C> {
+impl<C: Component> Arena<C> {
     pub fn new() -> Self {
-        Components { items: Vec::new(), vacancies: Vec::new() }
+        Arena { items: Vec::new(), vacancies: Vec::new() }
     }
 
-    pub fn attach(&mut self, token: &mut ComponentsToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
+    pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
         let id = <<C as Component>::Class as ComponentClass>::Id::inc(token.0).expect("component ids exhausted");
         token.0 = Some(id);
         if let Some(index) = self.vacancies.pop() {
@@ -241,7 +256,7 @@ impl<C: Component> Components<C> {
     }
 
     #[must_use]
-    pub fn detach(&mut self, id: Id<C>) -> Option<C> {
+    pub fn pop(&mut self, id: Id<C>) -> Option<C> {
         let index_as_usize = id.index.try_into().unwrap_or_else(|_| unsafe { unreachable_unchecked() });
         if self.items.len() <= index_as_usize { return None; }
         if let Some((item_id, component)) = self.items[index_as_usize].take() {
@@ -283,25 +298,25 @@ impl<C: Component> Components<C> {
     }
 }
 
-impl<C: Component> Default for Components<C> {
-    fn default() -> Self { Components::new() }
+impl<C: Component> Default for Arena<C> {
+    fn default() -> Self { Arena::new() }
 }
 
 #[cfg(feature="std")]
-pub struct ComponentsTokenMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentsToken<C>>>);
+pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
 
 #[cfg(feature="std")]
-impl<C: ComponentClass> ComponentsTokenMutex<C> {
+impl<C: ComponentClass> ComponentClassMutex<C> {
     pub const fn new() -> Self {
-        ComponentsTokenMutex(sync::Lazy::new(|| Mutex::new(
-            ComponentsToken::new().unwrap_or_else(|| unsafe { unreachable_unchecked() })
+        ComponentClassMutex(sync::Lazy::new(|| Mutex::new(
+            ComponentClassToken::new().unwrap_or_else(|| unsafe { unreachable_unchecked() })
         )))
     }
 }
 
 #[cfg(feature="std")]
-impl<C: ComponentClass> Deref for ComponentsTokenMutex<C> {
-    type Target = Mutex<ComponentsToken<C>>;
+impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
+    type Target = Mutex<ComponentClassToken<C>>;
 
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
@@ -664,9 +679,9 @@ macro_rules! Component {
         unsafe impl $crate::ComponentClass for $name {
             type Id = $id;
             type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
+            fn component_class_lock() -> &'static $crate::ComponentClassLock {
+                static CLASS_LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
+                &CLASS_LOCK
             }
         }
         impl $crate::Component for $name {
@@ -678,9 +693,9 @@ macro_rules! Component {
         unsafe impl $crate::ComponentClass for $class {
             type Id = $id;
             type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
+            fn component_class_lock() -> &'static $crate::ComponentClassLock {
+                static CLASS_LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
+                &CLASS_LOCK
             }
         }
         impl< $g > $crate::Component for $name < $r > {

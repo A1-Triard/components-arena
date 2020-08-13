@@ -7,7 +7,7 @@ extern crate components_arena;
 
 mod widgets {
     use std::num::NonZeroU32;
-    use components_arena::{Components, Id, ComponentsTokenMutex};
+    use components_arena::{Arena, Id, ComponentClassMutex};
 
     macro_attr! {
         #[derive(Component!(index=u16, id=NonZeroU32))]
@@ -18,17 +18,17 @@ mod widgets {
         }
     }
 
-    static WIDGET: ComponentsTokenMutex<WidgetData> = ComponentsTokenMutex::new();
+    static WIDGET: ComponentClassMutex<WidgetData> = ComponentClassMutex::new();
 
     pub struct Widgets {
-        arena: Components<WidgetData>,
+        arena: Arena<WidgetData>,
         root: Id<WidgetData>,
     }
 
     impl Widgets {
         pub fn new() -> Widgets {
-            let mut arena = Components::new();
-            let root = arena.attach(&mut WIDGET.lock().unwrap(), |this| WidgetData {
+            let mut arena = Arena::new();
+            let root = arena.push(&mut WIDGET.lock().unwrap(), |this| WidgetData {
                 parent: None, next: this, last_child: None
             });
             Widgets { arena, root }
@@ -42,7 +42,7 @@ mod widgets {
 
     impl Widget {
         pub fn new(widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.attach(&mut WIDGET.lock().unwrap(), |this| WidgetData {
+            let widget = widgets.arena.push(&mut WIDGET.lock().unwrap(), |this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
             if let Some(prev) = widgets.arena.get_mut(parent.0).unwrap().last_child.replace(widget) {
