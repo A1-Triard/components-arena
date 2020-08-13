@@ -27,4 +27,8 @@ name = "widget_tree"
 required-features = ["std"]
 
 [[example]]
+name = "widget_tree_generic"
+required-features = ["std"]
+
+[[example]]
 name = "widget_tree_no_std"

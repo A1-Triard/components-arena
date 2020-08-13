@@ -183,16 +183,6 @@ pub trait Component {
     /// Normally it is `Self` for non-generic types, and
     /// non-generic synthetic zero-sized type for generic ones.
     type Class: ComponentClass;
-
-    /// Function returning `Self::Class` type.
-    ///
-    /// This function is guaranteed to be never called, and may have any body.
-    ///
-    /// # Safety
-    ///
-    /// This function should not be called at all.
-    /// There are no circumstances when such call could be safe.
-    unsafe fn class(self) -> Self::Class;
 }
 
 /// Component handle.
@@ -316,55 +306,356 @@ impl<C: ComponentClass> Deref for ComponentsTokenMutex<C> {
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
 
-#[cfg(feature="std")]
 #[macro_export]
 macro_rules! Component {
-    ((id=$id:ty, $($x:tt)*) $($y:tt)*) => {
-        Component! { ($($x)*, id=$id) $($y)* }
-    };
-    ((class=$class:ident, $($x:tt)*) $($y:tt)*) => {
-        Component! { ($($x)*, class=$class) $($y)* }
-    };
-    ((token=$token:ident, $($x:tt)*) $($y:tt)*) => {
-        Component! { ($($x)*, token=$token) $($y)* }
-    };
-    ((index=$index:ty, class=$class:ident, $($x:tt)*) $($y:tt)*) => {
-        Component! { (index=$index, $($x)*, class=$class) $($y)* }
-    };
-    ((index=$index:ty, token=$token:ident, $($x:tt)*) $($y:tt)*) => {
-        Component! { (index=$index, $($x)*, token=$token) $($y)* }
-    };
-    ((index=$index:ty, id=$id:ty, class=$class:ident, token=$token:ident) $($y:tt)*) => {
-        Component! { ( index=$index, id=$id, token=$token, class=$class ) $($y)* }
-    };
-    ((index=$index:ty, id=$id:ty, token=$token:ident, class=$class:ident)
-        $(pub $((crate))?)? struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
+    ((index=$index:ty, id=$id:ty, class=$class:ident)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
         Component! {
-            @impl $name, $id, $index, $token, $class,
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
             < $( $lt ),+ >,
             < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
         }
     };
     ((index=$index:ty, id=$id:ty, class=$class:ident)
-        $(pub $((crate))?)? struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
         Component! {
-            @impl $name, $id, $index, $class,
+            @impl (pub(crate)) $name, $id, $index, $class,
             < $( $lt ),+ >,
             < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
         }
     };
-    ((index=$index:ty, id=$id:ty, token=$token:ident)
-        $(pub $((crate))?)? struct $name:ident
-        { $($tail:tt)* } ) => {
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
         Component! {
-            @impl $name, $id, $index, $token
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        pub(crate) enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, id=$id:ty, class=$class:ident)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        pub enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty)
+        $(pub $((crate))?)? enum $name:ident
+        $tail:tt ) => {
+        Component! {
+            @impl $name, $id, $index
+        }
+    };
+    ((index=$index:ty, id=$id:ty)
+        $(pub $((crate))?)? enum $name:ident
+        $tail:tt ) => {
+        Component! {
+            @impl $name, $id, $index
+        }
+    };
+    ((index=$index:ty, id=$id:ty, class=$class:ident)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl () $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, id=$id:ty, class=$class:ident)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        pub(crate) struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub(crate)) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, id=$id:ty, class=$class:ident)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((index=$index:ty, class=$class:ident, id=$id:ty)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty, class=$class:ident)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, class=$class:ident, index=$index:ty)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, index=$index:ty, id=$id:ty)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((class=$class:ident, id=$id:ty, index=$index:ty)
+        pub struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        Component! {
+            @impl (pub) $name, $id, $index, $class,
+            < $( $lt ),+ >,
+            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+        }
+    };
+    ((id=$id:ty, index=$index:ty)
+        $(pub $((crate))?)? struct $name:ident
+        $tail:tt ) => {
+        Component! {
+            @impl $name, $id, $index
         }
     };
     ((index=$index:ty, id=$id:ty)
         $(pub $((crate))?)? struct $name:ident
-        { $($tail:tt)* } ) => {
+        $tail:tt ) => {
         Component! {
             @impl $name, $id, $index
         }
@@ -380,11 +671,10 @@ macro_rules! Component {
         }
         impl $crate::Component for $name {
             type Class = Self;
-            unsafe fn class(self) -> Self { self }
         }
     };
-    (@impl $name:ident, $id:ty, $index:ty, $class:ident, < $g:tt >, < $r:tt >) => {
-        struct $class;
+    (@impl ($($p:tt $($c:tt)?)?) $name:ident, $id:ty, $index:ty, $class:ident, < $g:tt >, < $r:tt >) => {
+        $($p $($c)?)? struct $class;
         unsafe impl $crate::ComponentClass for $class {
             type Id = $id;
             type Index = $index;
@@ -394,98 +684,7 @@ macro_rules! Component {
             }
         }
         impl< $g > $crate::Component for $name < $r > {
-            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
-            unsafe fn class(self) -> Self::Class { $class }
-        }
-    };
-    (@impl $name:ident, $id:ty, $index:ty, $token:ident) => {
-        static $token: $crate::ComponentsTokenMutex<$name> = $crate::ComponentsTokenMutex::new();
-        unsafe impl $crate::ComponentClass for $name {
-            type Id = $id;
-            type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
-            }
-        }
-        impl $crate::Component for $name {
-            type Class = Self;
-            unsafe fn class(self) -> Self { self }
-        }
-    };
-    (@impl $name:ident, $id:ty, $index:ty, $token:ident, $class:ident, < $g:tt >, < $r:tt >) => {
-        static $token: $crate::ComponentsTokenMutex<$class> = $crate::ComponentsTokenMutex::new();
-        struct $class;
-        unsafe impl $crate::ComponentClass for $class {
-            type Id = $id;
-            type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
-            }
-        }
-        impl< $g > $crate::Component for $name < $r > {
-            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
-            unsafe fn class(self) -> Self::Class { $class }
-        }
-    };
-}
-
-#[cfg(not(feature="std"))]
-#[macro_export]
-macro_rules! Component {
-    ((id=$id:ty, $($x:tt)*) $($y:tt)*) => {
-        Component! { ($($x)*, id=$id) $($y)* }
-    };
-    ((class=$class:ident, $($x:tt)*) $($y:tt)*) => {
-        Component! { ($($x)*, class=$class) $($y)* }
-    };
-    ((index=$index:ty, class=$class:ident, id=$id:ty) $($y:tt)*) => {
-        Component! { (index=$index, id=$id, class=$class) $($y)* }
-    };
-    ((index=$index:ty, id=$id:ty, class=$class:ident)
-        $(pub $((crate))?)? struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > { $($tail:tt)* } ) => {
-        Component! {
-            @impl $name, $id, $index, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
-        }
-    };
-    ((index=$index:ty, id=$id:ty)
-        $(pub $((crate))?)? struct $name:ident
-        { $($tail:tt)* } ) => {
-        Component! {
-            @impl $name, $id, $index
-        }
-    };
-    (@impl $name:ident, $id:ty, $index:ty) => {
-        unsafe impl $crate::ComponentClass for $name {
-            type Id = $id;
-            type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
-            }
-        }
-        impl $crate::Component for $name {
-            type Class = Self;
-            unsafe fn class(self) -> Self { self }
-        }
-    };
-    (@impl $name:ident, $id:ty, $index:ty, $class:ident, < $g:tt >, < $r:tt >) => {
-        struct $class;
-        unsafe impl $crate::ComponentClass for $class {
-            type Id = $id;
-            type Index = $index;
-            fn components_token_lock() -> &'static $crate::ComponentsTokenLock {
-                static TOKEN_LOCK: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-                &TOKEN_LOCK
-            }
-        }
-        impl< $g > $crate::Component for $name < $r > {
-            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
-            unsafe fn class(self) -> Self::Class { $class }
+            type Class = $class;
         }
     };
 }

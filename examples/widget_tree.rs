@@ -1,4 +1,4 @@
-#![feature(type_alias_impl_trait)]
+#![deny(warnings)]
 
 #[macro_use]
 extern crate macro_attr;
@@ -7,16 +7,18 @@ extern crate components_arena;
 
 mod widgets {
     use std::num::NonZeroU32;
-    use components_arena::{Components, Id};
+    use components_arena::{Components, Id, ComponentsTokenMutex};
 
     macro_attr! {
-        #[derive(Component!(token=WIDGET, index=u16, id=NonZeroU32))]
+        #[derive(Component!(index=u16, id=NonZeroU32))]
         struct WidgetData {
             parent: Option<Id<WidgetData>>,
             next: Id<WidgetData>,
             last_child: Option<Id<WidgetData>>,
         }
     }
+
+    static WIDGET: ComponentsTokenMutex<WidgetData> = ComponentsTokenMutex::new();
 
     pub struct Widgets {
         arena: Components<WidgetData>,
@@ -49,7 +51,7 @@ mod widgets {
             Widget(widget)
         }
 
-        pub fn parent(self, widgets: &mut Widgets) -> Option<Widget> {
+        pub fn parent(self, widgets: &Widgets) -> Option<Widget> {
             widgets.arena.get(self.0).unwrap().parent.map(Widget)
         }
     }

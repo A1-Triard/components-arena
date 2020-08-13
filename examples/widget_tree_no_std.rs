@@ -1,5 +1,6 @@
 #![no_std]
-#![feature(type_alias_impl_trait)]
+
+#![deny(warnings)]
 
 #[macro_use]
 extern crate macro_attr;
@@ -56,7 +57,7 @@ mod widgets {
             Widget(widget)
         }
 
-        pub fn parent(self, widgets: &mut Widgets) -> Option<Widget> {
+        pub fn parent(self, widgets: &Widgets) -> Option<Widget> {
             widgets.arena.get(self.0).unwrap().parent.map(Widget)
         }
     }
