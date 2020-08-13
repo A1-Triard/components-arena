@@ -212,7 +212,7 @@ pub struct Arena<C: Component> {
 ///
 /// // ...
 ///
-/// let id = arena.push(&mut MY_COMPONENT.lock().unwrap() /*, ... */);
+/// let id = arena.push(&mut MY_COMPONENT.lock().unwrap(), /* ... */);
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
