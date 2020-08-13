@@ -28,7 +28,7 @@ use std::sync::Mutex;
 use std::ops::Deref;
 
 /// An implementor of the `ComponentId` trait
-/// can used as a component actual id.
+/// can be used as a component actual id type.
 ///
 /// In the generational arena approach every component has an `Id`
 /// consisting of two parts: index, and actual id.
@@ -85,7 +85,7 @@ unsafe impl ComponentId for NonZeroUsize {
 }
 
 /// An implementor of the `ComponentIndex` trait
-/// can be used as an index part of a component `Id`.
+/// can be used as an index part type of a component `Id`.
 ///
 /// In the generational arena approach every component has an `Id`
 /// consisting of two parts: index, and actual id.
@@ -114,13 +114,16 @@ unsafe impl ComponentIndex for u128 { }
 
 unsafe impl ComponentIndex for usize { }
 
-/// The return type of the `ComponentImpl::components_token_lock` function.
-/// This structure is essential for components arena internal mechanic.
+/// The return type of the `ComponentClass::components_token_lock` function.
+///
+/// The `ComponentClass::component_token_lock` function
+/// is essential for components arena internal mechanic.
 pub struct ComponentsTokenLock(AtomicBool);
 
 impl ComponentsTokenLock {
-    /// Creates new `ComponentsTokenLock` instance. The function is `const`,
-    /// and can be used for static initialization.
+    /// Creates new `ComponentsTokenLock` instance.
+    ///
+    /// The function is `const`, and can be used for static initialization.
     pub const fn new() -> Self { ComponentsTokenLock(AtomicBool::new(false)) }
 }
 
@@ -128,12 +131,10 @@ impl Default for ComponentsTokenLock {
     fn default() -> Self { ComponentsTokenLock::new() }
 }
 
-/// Any type implementing this trait describes some class of components sharing
-/// common `Id` generator,
-/// so all components with same class are guaranteed to have distinct `Id`s.
+/// An utility trait describing a specific component type.
 ///
 /// Normaly for a non-generic component type
-/// the component type itself implements `ComponentImpl`.
+/// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
 /// an own `ComponentsTokenLock` instance for every specialization because Rust
@@ -141,32 +142,32 @@ impl Default for ComponentsTokenLock {
 ///
 /// So, if some component type `X` is generic, normally you should introduce
 /// common non-generic synthetic zero-sized type `XComponent` and implement
-/// `ComponentImpl` for this synthetic type.
+/// `ComponentClass` for this synthetic type.
 ///
 /// # Safety
 ///
 /// Correct safe implementation should return reference to the one and same
 /// `ComponentsTokenLock` instance from the `components_token_lock` function.
 ///
-/// Also it should be garanteed that no other `ComponentImpl` implementation
+/// Also it should be garanteed that no other `ComponentClass` implementation
 /// returns same `ComponentsTokenLock` instance.
 ///
 /// This requirements can be easaly satisfied with private static:
 ///
 /// ```rust
 /// static MY_COMPONENT_TOKEN_LOCK: ComponentsTokenLock = ComponentTokenLock::new();
-/// unsafe impl ComponentImpl for MyComponent {
+/// unsafe impl ComponentClass for MyComponent {
 ///     fn components_token_lock() -> &'static ComponentsTokenLock {
 ///         &MY_COMPONENT_TOKEN_LOCK
 ///     }
 ///     // ...
 /// }
 /// ```
-pub unsafe trait ComponentImpl {
-    /// First part of compound component id, distinct for all alive components.
+pub unsafe trait ComponentClass {
+    /// First part of compound component id, distincting all alive components.
     type Index: ComponentIndex;
 
-    /// Second part of compound component id, distinct for all components
+    /// Second part of compound component id, distincting all components
     /// created during application run time.
     type Id: ComponentId;
 
@@ -174,42 +175,47 @@ pub unsafe trait ComponentImpl {
     fn components_token_lock() -> &'static ComponentsTokenLock;
 }
 
-/// Describes type, whose values can be put into arena container and accessed
-/// through shared `Id`.
+/// An implementor of the `Component` trait is a type, whose values can be placed into
+/// `Components` container.
 pub trait Component {
-    /// Component class. Normally it is `Self` for non-generic types, and
+    /// Component class.
+    ///
+    /// Normally it is `Self` for non-generic types, and
     /// non-generic synthetic zero-sized type for generic ones.
-    type Impl: ComponentImpl;
+    type Class: ComponentClass;
 
-    /// Function returning `Self::Impl` type.
+    /// Function returning `Self::Class` type.
+    ///
     /// This function is guaranteed to be never called, and may have any body.
     ///
     /// # Safety
     ///
     /// This function should not be called at all.
     /// There are no circumstances when such call could be safe.
-    unsafe fn impl_type(self) -> Self::Impl;
+    unsafe fn class(self) -> Self::Class;
 }
 
-/// Component handle. Distinct components are guaranteed to have distinct handles.
+/// Component handle.
+///
+/// Distinct components are guaranteed to have distinct handles.
 #[derive(Derivative)]
 #[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
 pub struct Id<C: Component> {
-    index: <<C as Component>::Impl as ComponentImpl>::Index,
-    id: <<C as Component>::Impl as ComponentImpl>::Id,
+    index: <<C as Component>::Class as ComponentClass>::Index,
+    id: <<C as Component>::Class as ComponentClass>::Id,
 }
 
 /// The `Components` structure allows inserting and removing elements that are referred to by `Id`.
 #[derive(Debug)]
 pub struct Components<C: Component> {
-    items: Vec<Option<(<<C as Component>::Impl as ComponentImpl>::Id, C)>>,
-    vacancies: Vec<<<C as Component>::Impl as ComponentImpl>::Index>,
+    items: Vec<Option<(<<C as Component>::Class as ComponentClass>::Id, C)>>,
+    vacancies: Vec<<<C as Component>::Class as ComponentClass>::Index>,
 }
 
-pub struct ComponentsToken<C: ComponentImpl>(Option<C::Id>);
+pub struct ComponentsToken<C: ComponentClass>(Option<C::Id>);
 
-impl<C: ComponentImpl> ComponentsToken<C> {
+impl<C: ComponentClass> ComponentsToken<C> {
     pub fn new() -> Option<ComponentsToken<C>> {
         let lock = C::components_token_lock();
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
@@ -225,8 +231,8 @@ impl<C: Component> Components<C> {
         Components { items: Vec::new(), vacancies: Vec::new() }
     }
 
-    pub fn attach(&mut self, token: &mut ComponentsToken<C::Impl>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
-        let id = <<C as Component>::Impl as ComponentImpl>::Id::inc(token.0).expect("component ids exhausted");
+    pub fn attach(&mut self, token: &mut ComponentsToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
+        let id = <<C as Component>::Class as ComponentClass>::Id::inc(token.0).expect("component ids exhausted");
         token.0 = Some(id);
         if let Some(index) = self.vacancies.pop() {
             let index_id = Id { index, id };
@@ -292,10 +298,10 @@ impl<C: Component> Default for Components<C> {
 }
 
 #[cfg(feature="std")]
-pub struct ComponentsTokenMutex<C: ComponentImpl>(sync::Lazy<Mutex<ComponentsToken<C>>>);
+pub struct ComponentsTokenMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentsToken<C>>>);
 
 #[cfg(feature="std")]
-impl<C: ComponentImpl> ComponentsTokenMutex<C> {
+impl<C: ComponentClass> ComponentsTokenMutex<C> {
     pub const fn new() -> Self {
         ComponentsTokenMutex(sync::Lazy::new(|| Mutex::new(
             ComponentsToken::new().unwrap_or_else(|| unsafe { unreachable_unchecked() })
@@ -304,7 +310,7 @@ impl<C: ComponentImpl> ComponentsTokenMutex<C> {
 }
 
 #[cfg(feature="std")]
-impl<C: ComponentImpl> Deref for ComponentsTokenMutex<C> {
+impl<C: ComponentClass> Deref for ComponentsTokenMutex<C> {
     type Target = Mutex<ComponentsToken<C>>;
 
     fn deref(&self) -> &Self::Target { self.0.deref() }
@@ -377,54 +383,54 @@ macro_rules! Component {
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-        unsafe impl $crate::ComponentImpl for $name {
+        unsafe impl $crate::ComponentClass for $name {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl $crate::Component for $name {
-            type Impl = Self;
-            unsafe fn impl_type(self) -> Self { self }
+            type Class = Self;
+            unsafe fn class(self) -> Self { self }
         }
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
         struct $impl;
-        unsafe impl $crate::ComponentImpl for $impl {
+        unsafe impl $crate::ComponentClass for $impl {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl< $g > $crate::Component for $name < $r > {
-            type Impl = impl $crate::ComponentImpl<id=$id, index=$index>;
-            unsafe fn impl_type(self) -> Self::Impl { $impl }
+            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
+            unsafe fn class(self) -> Self::Class { $impl }
         }
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $token:ident) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
         static $token: $crate::ComponentsTokenMutex<$name> = $crate::ComponentsTokenMutex::new();
-        unsafe impl $crate::ComponentImpl for $name {
+        unsafe impl $crate::ComponentClass for $name {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl $crate::Component for $name {
-            type Impl = Self;
-            unsafe fn impl_type(self) -> Self { self }
+            type Class = Self;
+            unsafe fn class(self) -> Self { self }
         }
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $token:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
         static $token: $crate::ComponentsTokenMutex<$impl> = $crate::ComponentsTokenMutex::new();
         struct $impl;
-        unsafe impl $crate::ComponentImpl for $impl {
+        unsafe impl $crate::ComponentClass for $impl {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl< $g > $crate::Component for $name < $r > {
-            type Impl = impl $crate::ComponentImpl<id=$id, index=$index>;
-            unsafe fn impl_type(self) -> Self::Impl { $impl }
+            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
+            unsafe fn class(self) -> Self::Class { $impl }
         }
     };
 }
@@ -468,27 +474,27 @@ macro_rules! Component {
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
-        unsafe impl $crate::ComponentImpl for $name {
+        unsafe impl $crate::ComponentClass for $name {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl $crate::Component for $name {
-            type Impl = Self;
-            unsafe fn impl_type(self) -> Self { self }
+            type Class = Self;
+            unsafe fn class(self) -> Self { self }
         }
     };
     (@impl $name:ident, $id:ty, $index:ty, $token_lock:ident, $impl:ident, < $g:tt >, < $r:tt >) => {
         static $token_lock: $crate::ComponentsTokenLock = $crate::ComponentsTokenLock::new();
         struct $impl;
-        unsafe impl $crate::ComponentImpl for $impl {
+        unsafe impl $crate::ComponentClass for $impl {
             type Id = $id;
             type Index = $index;
             fn components_token_lock() -> &'static $crate::ComponentsTokenLock { &$token_lock }
         }
         impl< $g > $crate::Component for $name < $r > {
-            type Impl = impl $crate::ComponentImpl<id=$id, index=$index>;
-            unsafe fn impl_type(self) -> Self::Impl { $impl }
+            type Class = impl $crate::ComponentClass<id=$id, index=$index>;
+            unsafe fn class(self) -> Self::Class { $impl }
         }
     };
 }
