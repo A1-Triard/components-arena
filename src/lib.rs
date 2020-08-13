@@ -114,7 +114,7 @@ unsafe impl ComponentIndex for u128 { }
 
 unsafe impl ComponentIndex for usize { }
 
-/// The return type of the `ComponentClass::component_class_lock` function.
+/// The return type of the `ComponentClass::lock` function.
 ///
 /// The `ComponentClass::component_token_lock` function
 /// is essential for components arena internal mechanic.
@@ -147,7 +147,7 @@ impl Default for ComponentClassLock {
 /// # Safety
 ///
 /// Correct safe implementation should return reference to the one and same
-/// `ComponentClassLock` instance from the `component_class_lock` function.
+/// `ComponentClassLock` instance from the `lock` function.
 ///
 /// Also it should be garanteed that no other `ComponentClass` implementation
 /// returns same `ComponentClassLock` instance.
@@ -156,7 +156,7 @@ impl Default for ComponentClassLock {
 ///
 /// ```rust
 /// unsafe impl ComponentClass for MyComponent {
-///     fn component_class_lock() -> &'static ComponentClassLock {
+///     fn lock() -> &'static ComponentClassLock {
 ///         static CLASS_LOCK: ComponentClassLock = ComponentTokenLock::new();
 ///         &CLASS_LOCK
 ///     }
@@ -172,7 +172,7 @@ pub unsafe trait ComponentClass {
     type Id: ComponentId;
 
     /// Essential for components arena internal mechanic.
-    fn component_class_lock() -> &'static ComponentClassLock;
+    fn lock() -> &'static ComponentClassLock;
 }
 
 /// An implementor of the `Component` trait is a type, whose values can be placed into
@@ -222,7 +222,7 @@ pub struct ComponentClassToken<C: ComponentClass>(Option<C::Id>);
 
 impl<C: ComponentClass> ComponentClassToken<C> {
     pub fn new() -> Option<ComponentClassToken<C>> {
-        let lock = C::component_class_lock();
+        let lock = C::lock();
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
@@ -679,7 +679,7 @@ macro_rules! Component {
         unsafe impl $crate::ComponentClass for $name {
             type Id = $id;
             type Index = $index;
-            fn component_class_lock() -> &'static $crate::ComponentClassLock {
+            fn lock() -> &'static $crate::ComponentClassLock {
                 static CLASS_LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
                 &CLASS_LOCK
             }
@@ -693,7 +693,7 @@ macro_rules! Component {
         unsafe impl $crate::ComponentClass for $class {
             type Id = $id;
             type Index = $index;
-            fn component_class_lock() -> &'static $crate::ComponentClassLock {
+            fn lock() -> &'static $crate::ComponentClassLock {
                 static CLASS_LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
                 &CLASS_LOCK
             }
