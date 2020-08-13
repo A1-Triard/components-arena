@@ -141,7 +141,7 @@ impl Default for ComponentsTokenLock {
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
-/// common non-generic synthetic zero-sized type `XComponent` and implement
+/// common non-generic synthetic uninhabited type `XComponent` and implement
 /// `ComponentClass` for this synthetic type.
 ///
 /// # Safety
@@ -181,7 +181,7 @@ pub trait Component {
     /// Component class.
     ///
     /// Normally it is `Self` for non-generic types, and
-    /// non-generic synthetic zero-sized type for generic ones.
+    /// non-generic synthetic uninhabited type for generic ones.
     type Class: ComponentClass;
 }
 
