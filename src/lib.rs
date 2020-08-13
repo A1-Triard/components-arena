@@ -155,12 +155,17 @@ impl Default for ComponentClassLock {
 /// This requirements can be easaly satisfied with private static:
 ///
 /// ```rust
+/// use components_arena::{ComponentClass, ComponentClassLock};
+///
+/// struct MyComponent { /* ... */ }
 /// unsafe impl ComponentClass for MyComponent {
 ///     fn lock() -> &'static ComponentClassLock {
 ///         static CLASS_LOCK: ComponentClassLock = ComponentClassLock::new();
 ///         &CLASS_LOCK
 ///     }
-///     // ...
+///
+///     type Index = u32;
+///     type Unique = std::num::NonZeroU64;
 /// }
 /// ```
 pub unsafe trait ComponentClass {
@@ -208,11 +213,26 @@ pub struct Arena<C: Component> {
 /// In the no-`no_std` environment it can be stored inside static `ComponentClassMutex`:
 ///
 /// ```rust
-/// static MY_COMPONENT: ComponentClassMutex<MyComponent = ComponentClassMutex::new();
+/// #[macro_use]
+/// extern crate macro_attr;
+/// #[macro_use]
+/// extern crate components_arena;
+/// use std::num::NonZeroU64;
+/// use components_arena::{ComponentClassMutex, Arena};
+///
+/// macro_attr! {
+///     #[derive(Component!(index=u32, unique=NonZeroU64))]
+///     struct MyComponent { /* ... */ }
+/// }
+///
+/// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
 ///
 /// // ...
 ///
-/// let id = arena.push(&mut MY_COMPONENT.lock().unwrap(), /* ... */);
+/// fn main() {
+///     let mut arena = Arena::new();
+///     let id = arena.push(&mut MY_COMPONENT.lock().unwrap(), |_| MyComponent { /* ... */ });
+/// }
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
@@ -306,7 +326,7 @@ pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClas
 impl<C: ComponentClass> ComponentClassMutex<C> {
     pub const fn new() -> Self {
         ComponentClassMutex(sync::Lazy::new(|| Mutex::new(
-            ComponentClassToken::new().unwrap_or_else(|| unsafe { unreachable_unchecked() })
+            ComponentClassToken::new().expect("component class token alread taken")
         )))
     }
 }
