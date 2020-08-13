@@ -185,7 +185,7 @@ pub trait Component {
     type Class: ComponentClass;
 }
 
-/// Arena item handle.
+/// `Arena` item handle.
 #[derive(Derivative)]
 #[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
@@ -318,6 +318,7 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
 
+/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving `Component` trait.
 #[macro_export]
 macro_rules! Component {
     ((index=$index:ty, unique=$unique:ty, class=$class:ident)
