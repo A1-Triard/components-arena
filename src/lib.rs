@@ -674,7 +674,7 @@ macro_rules! Component {
         }
     };
     (@impl ($($p:tt $($c:tt)?)?) $name:ident, $id:ty, $index:ty, $class:ident, < $g:tt >, < $r:tt >) => {
-        $($p $($c)?)? struct $class;
+        $($p $($c)?)? enum $class { }
         unsafe impl $crate::ComponentClass for $class {
             type Id = $id;
             type Index = $index;
