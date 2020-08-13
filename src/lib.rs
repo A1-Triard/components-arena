@@ -27,7 +27,24 @@ use std::sync::Mutex;
 #[cfg(feature="std")]
 use std::ops::Deref;
 
+/// An implementor of the `ComponentId` trait
+/// can used as a component actual id.
+///
+/// In the generational arena approach every component has an `Id`
+/// consisting of two parts: index, and actual id.
+/// First part, index, is distinct for all alive components,
+/// but second one, id, is distinct for all components
+/// created during application run time.
+///
+/// # Safety
+///
+/// Safe implementation should purely, correctly and consistently implement
+/// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
+///
+/// The `inc` function should be pure, and produce
+/// a serie of distinct values when applied cycely to `None`.
 pub unsafe trait ComponentId: Debug + Copy + Eq + Hash + Ord {
+    /// Takes last generated id and returns next free one.
     fn inc(this: Option<Self>) -> Option<Self>;
 }
 
@@ -67,6 +84,22 @@ unsafe impl ComponentId for NonZeroUsize {
     }
 }
 
+/// An implementor of the `ComponentIndex` trait
+/// can be used as an index part of a component `Id`.
+///
+/// In the generational arena approach every component has an `Id`
+/// consisting of two parts: index, and actual id.
+/// First part, index, is distinct for all alive components,
+/// but second one, id, is distinct for all components
+/// created during application run time.
+///
+/// # Safety
+///
+/// Safe implementation should purely, correctly and consistently implement
+/// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
+///
+/// The `TryInto<usize>` and `TryFrom<usize>` implementaions should be pure,
+/// and if `try_from(n)` is `Ok(x)` then `try_into(x)` should be `Ok(n)`.
 pub unsafe trait ComponentIndex: Debug + Copy + Eq + Hash + Ord + TryInto<usize> + TryFrom<usize> { }
 
 unsafe impl ComponentIndex for u8 { }
@@ -81,9 +114,13 @@ unsafe impl ComponentIndex for u128 { }
 
 unsafe impl ComponentIndex for usize { }
 
+/// The return type of the `ComponentImpl::components_token_lock` function.
+/// This structure is essential for components arena internal mechanic.
 pub struct ComponentsTokenLock(AtomicBool);
 
 impl ComponentsTokenLock {
+    /// Creates new `ComponentsTokenLock` instance. The function is `const`,
+    /// and can be used for static initialization.
     pub const fn new() -> Self { ComponentsTokenLock(AtomicBool::new(false)) }
 }
 
@@ -91,19 +128,70 @@ impl Default for ComponentsTokenLock {
     fn default() -> Self { ComponentsTokenLock::new() }
 }
 
+/// Any type implementing this trait describes some class of components sharing
+/// common `Id` generator,
+/// so all components with same class are guaranteed to have distinct `Id`s.
+///
+/// Normaly for a non-generic component type
+/// the component type itself implements `ComponentImpl`.
+///
+/// For generic components it would be difficult to have
+/// an own `ComponentsTokenLock` instance for every specialization because Rust
+/// does not have "generic statics" feature.
+///
+/// So, if some component type `X` is generic, normally you should introduce
+/// common non-generic synthetic zero-sized type `XComponent` and implement
+/// `ComponentImpl` for this synthetic type.
+///
+/// # Safety
+///
+/// Correct safe implementation should return reference to the one and same
+/// `ComponentsTokenLock` instance from the `components_token_lock` function.
+///
+/// Also it should be garanteed that no other `ComponentImpl` implementation
+/// returns same `ComponentsTokenLock` instance.
+///
+/// This requirements can be easaly satisfied with private static:
+///
+/// ```rust
+/// static MY_COMPONENT_TOKEN_LOCK: ComponentsTokenLock = ComponentTokenLock::new();
+/// unsafe impl ComponentImpl for MyComponent {
+///     fn components_token_lock() -> &'static ComponentsTokenLock {
+///         &MY_COMPONENT_TOKEN_LOCK
+///     }
+///     // ...
+/// }
+/// ```
 pub unsafe trait ComponentImpl {
-    type Id: ComponentId;
+    /// First part of compound component id, distinct for all alive components.
     type Index: ComponentIndex;
+
+    /// Second part of compound component id, distinct for all components
+    /// created during application run time.
+    type Id: ComponentId;
+
+    /// Essential for components arena internal mechanic.
     fn components_token_lock() -> &'static ComponentsTokenLock;
 }
 
+/// Describes type, whose values can be put into arena container and accessed
+/// through shared `Id`.
 pub trait Component {
+    /// Component class. Normally it is `Self` for non-generic types, and
+    /// non-generic synthetic zero-sized type for generic ones.
     type Impl: ComponentImpl;
+
+    /// Function returning `Self::Impl` type.
+    /// This function is guaranteed to be never called, and may have any body.
+    ///
     /// # Safety
-    /// This function should not be called at all. There are no circumstances when such call could be safe.
+    ///
+    /// This function should not be called at all.
+    /// There are no circumstances when such call could be safe.
     unsafe fn impl_type(self) -> Self::Impl;
 }
 
+/// Component handle. Distinct components are guaranteed to have distinct handles.
 #[derive(Derivative)]
 #[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
@@ -112,6 +200,7 @@ pub struct Id<C: Component> {
     id: <<C as Component>::Impl as ComponentImpl>::Id,
 }
 
+/// The `Components` structure allows inserting and removing elements that are referred to by `Id`.
 #[derive(Debug)]
 pub struct Components<C: Component> {
     items: Vec<Option<(<<C as Component>::Impl as ComponentImpl>::Id, C)>>,
