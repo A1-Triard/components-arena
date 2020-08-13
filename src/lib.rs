@@ -141,7 +141,7 @@ impl Default for ComponentClassLock {
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
-/// common non-generic synthetic uninhabited type `XComponent` and implement
+/// common non-generic uninhabited type `XComponent` and implement
 /// `ComponentClass` for this synthetic type.
 ///
 /// # Safety
@@ -157,7 +157,7 @@ impl Default for ComponentClassLock {
 /// ```rust
 /// unsafe impl ComponentClass for MyComponent {
 ///     fn lock() -> &'static ComponentClassLock {
-///         static CLASS_LOCK: ComponentClassLock = ComponentTokenLock::new();
+///         static CLASS_LOCK: ComponentClassLock = ComponentClassLock::new();
 ///         &CLASS_LOCK
 ///     }
 ///     // ...
@@ -205,7 +205,7 @@ pub struct Arena<C: Component> {
 
 /// Component class static shared data.
 ///
-/// In the `std` environment can be stored inside static `ComponentClassMutex`:
+/// In the no-`no_std` environment it can be stored inside static `ComponentClassMutex`:
 ///
 /// ```rust
 /// static MY_COMPONENT: ComponentClassMutex<MyComponent = ComponentClassMutex::new();
@@ -215,7 +215,7 @@ pub struct Arena<C: Component> {
 /// let id = arena.push(&mut MY_COMPONENT.lock().unwrap() /*, ... */);
 /// ```
 ///
-/// In `no_std` environment a custom solution should be used to store `ComponentClassToken`.
+/// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
 pub struct ComponentClassToken<C: ComponentClass>(Option<C::Unique>);
 
 impl<C: ComponentClass> ComponentClassToken<C> {
