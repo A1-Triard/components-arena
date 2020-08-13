@@ -85,7 +85,7 @@ unsafe impl ComponentId for NonZeroUsize {
 }
 
 /// An implementor of the `ComponentIndex` trait
-/// can be used as an index part type of a component `Id`.
+/// can be used as an index part type of `Id`.
 ///
 /// In the generational arena approach every component has an `Id`
 /// consisting of two parts: index, and actual id.
