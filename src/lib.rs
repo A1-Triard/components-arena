@@ -1,5 +1,7 @@
 #![deny(warnings)]
 #![feature(const_fn)]
+#![feature(try_reserve)]
+#![feature(shrink_to)]
 
 #![cfg_attr(not(feature="std"), no_std)]
 #[cfg(not(feature="std"))]
@@ -7,17 +9,20 @@ extern crate alloc;
 #[cfg(not(feature="std"))]
 pub(crate) mod std {
     pub use core::*;
+    pub use ::alloc::collections;
     pub use ::alloc::vec;
 }
 
 #[macro_use]
 extern crate derivative;
 
+use std::collections::TryReserveError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hint::unreachable_unchecked;
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
+use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::vec::Vec;
 #[cfg(feature="std")]
@@ -254,6 +259,53 @@ impl<C: Component> Arena<C> {
         Arena { items: Vec::new(), vacancies: Vec::new() }
     }
 
+    pub fn with_capacity(arena_capacity: Option<usize>, vacancies_capacity: Option<usize>) -> Self {
+        Arena {
+            items: arena_capacity.map_or_else(Vec::new, Vec::with_capacity),
+            vacancies: vacancies_capacity.map_or_else(Vec::new, Vec::with_capacity),
+        }
+    }
+
+    pub fn arena_capacity(&self) -> usize { self.items.capacity() }
+
+    pub fn arena_len(&self) -> usize { self.items.len() }
+
+    pub fn arena_reserve(&mut self, additional: usize) { self.items.reserve(additional) }
+
+    pub fn arena_reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
+
+    pub fn arena_shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
+
+    pub fn arena_shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
+
+    pub fn arena_try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.items.try_reserve(additional)
+    }
+
+    pub fn arena_try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.items.try_reserve_exact(additional)
+    }
+
+    pub fn vacancies_capacity(&self) -> usize { self.vacancies.capacity() }
+
+    pub fn vacancies_len(&self) -> usize { self.vacancies.len() }
+
+    pub fn vacancies_reserve(&mut self, additional: usize) { self.vacancies.reserve(additional) }
+
+    pub fn vacancies_reserve_exact(&mut self, additional: usize) { self.vacancies.reserve_exact(additional) }
+
+    pub fn vacancies_shrink_to(&mut self, min_capacity: usize) { self.vacancies.shrink_to(min_capacity) }
+
+    pub fn vacancies_shrink_to_fit(&mut self) { self.vacancies.shrink_to_fit() }
+
+    pub fn vacancies_try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.vacancies.try_reserve(additional)
+    }
+
+    pub fn vacancies_try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.vacancies.try_reserve_exact(additional)
+    }
+
     pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
         let unique = <<C as Component>::Class as ComponentClass>::Unique::inc(token.0).expect("component ids exhausted");
         token.0 = Some(unique);
@@ -318,6 +370,16 @@ impl<C: Component> Default for Arena<C> {
     fn default() -> Self { Arena::new() }
 }
 
+impl<C: Component> Index<Id<C>> for Arena<C> {
+    type Output = C;
+
+    fn index(&self, id: Id<C>) -> &C { self.get(id).expect("component not found") }
+}
+
+impl<C: Component> IndexMut<Id<C>> for Arena<C> {
+    fn index_mut(&mut self, id: Id<C>) -> &mut C { self.get_mut(id).expect("component not found") }
+}
+
 /// Helps to store `ComponentClassToken` in a static.
 #[cfg(feature="std")]
 pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
@@ -339,6 +401,63 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 }
 
 /// [Macro attribute](https://crates.io/crates/macro-attr) for deriving `Component` trait.
+///
+/// # Examples
+///
+/// ## Non-generic component
+///
+/// ```
+/// #[macro_use]
+/// extern crate macro_attr;
+/// #[macro_use]
+/// extern crate components_arena;
+/// use std::num::NonZeroU64;
+/// use components_arena::{ComponentClassMutex, Arena};
+///
+/// macro_attr! {
+///     #[derive(Component!(index=u32, unique=NonZeroU64))]
+///     struct Item { /* ... */ }
+/// }
+///
+/// static ITEM: ComponentClassMutex<Item> = ComponentClassMutex::new();
+///
+/// // ...
+///
+/// fn main() {
+///     let mut arena = Arena::new();
+///     let id = arena.push(&mut ITEM.lock().unwrap(), |_| Item { /* ... */ });
+/// }
+/// ```
+///
+/// ## Generic component
+///
+/// ```
+/// #[macro_use]
+/// extern crate macro_attr;
+/// #[macro_use]
+/// extern crate components_arena;
+/// use std::num::NonZeroU64;
+/// use components_arena::{ComponentClassMutex, Arena};
+///
+/// macro_attr! {
+///     #[derive(Component!(index=u32, unique=NonZeroU64, class=ItemComponent))]
+///     struct Item<T> {
+///         context: T
+///     }
+/// }
+///
+/// static ITEM: ComponentClassMutex<ItemComponent> = ComponentClassMutex::new();
+///
+/// // ...
+///
+/// fn main() {
+///     let mut arena_u8 = Arena::new();
+///     let _ = arena_u8.push(&mut ITEM.lock().unwrap(), |_| Item { context: 7u8 });
+///
+///     let mut arena_u32 = Arena::new();
+///     let _ = arena_u32.push(&mut ITEM.lock().unwrap(), |_| Item { context: 7u32 });
+/// }
+/// ```
 #[macro_export]
 macro_rules! Component {
     ((index=$index:ty, unique=$unique:ty, class=$class:ident)
