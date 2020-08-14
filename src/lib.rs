@@ -20,10 +20,12 @@ use std::collections::TryReserveError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::mem::replace;
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
 use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::vec::Vec;
+use either::{Either, Left, Right};
 #[cfg(feature="std")]
 use once_cell::sync::{self};
 #[cfg(feature="std")]
@@ -235,8 +237,11 @@ pub struct Id<C: Component> {
 /// Prevents incorrect access through deleted or foreign `Id`.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
-    items: Vec<Option<(<<C as Component>::Class as ComponentClass>::Unique, C)>>,
-    vacancies: Vec<<<C as Component>::Class as ComponentClass>::Index>,
+    items: Vec<Either<
+        Option<<<C as Component>::Class as ComponentClass>::Index>,
+        (<<C as Component>::Class as ComponentClass>::Unique, C)
+    >>,
+    vacancy: Option<<<C as Component>::Class as ComponentClass>::Index>,
 }
 
 /// Component class static shared data.
@@ -288,54 +293,31 @@ impl<C: ComponentClass> ComponentClassToken<C> {
 
 impl<C: Component> Arena<C> {
     pub fn new() -> Self {
-        Arena { items: Vec::new(), vacancies: Vec::new() }
+        Arena { items: Vec::new(), vacancy: None }
     }
 
-    pub fn with_capacity(arena_capacity: Option<usize>, vacancies_capacity: Option<usize>) -> Self {
-        Arena {
-            items: arena_capacity.map_or_else(Vec::new, Vec::with_capacity),
-            vacancies: vacancies_capacity.map_or_else(Vec::new, Vec::with_capacity),
-        }
+    pub fn with_capacity(capacity: usize) -> Self {
+        Arena { items: Vec::with_capacity(capacity), vacancy: None }
     }
 
-    pub fn arena_capacity(&self) -> usize { self.items.capacity() }
+    pub fn capacity(&self) -> usize { self.items.capacity() }
 
-    pub fn arena_len(&self) -> usize { self.items.len() }
+    pub fn len(&self) -> usize { self.items.len() }
 
-    pub fn arena_reserve(&mut self, additional: usize) { self.items.reserve(additional) }
+    pub fn reserve(&mut self, additional: usize) { self.items.reserve(additional) }
 
-    pub fn arena_reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
+    pub fn reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
 
-    pub fn arena_shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
+    pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
-    pub fn arena_shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
+    pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
-    pub fn arena_try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve(additional)
     }
 
-    pub fn arena_try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve_exact(additional)
-    }
-
-    pub fn vacancies_capacity(&self) -> usize { self.vacancies.capacity() }
-
-    pub fn vacancies_len(&self) -> usize { self.vacancies.len() }
-
-    pub fn vacancies_reserve(&mut self, additional: usize) { self.vacancies.reserve(additional) }
-
-    pub fn vacancies_reserve_exact(&mut self, additional: usize) { self.vacancies.reserve_exact(additional) }
-
-    pub fn vacancies_shrink_to(&mut self, min_capacity: usize) { self.vacancies.shrink_to(min_capacity) }
-
-    pub fn vacancies_shrink_to_fit(&mut self) { self.vacancies.shrink_to_fit() }
-
-    pub fn vacancies_try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
-        self.vacancies.try_reserve(additional)
-    }
-
-    pub fn vacancies_try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
-        self.vacancies.try_reserve_exact(additional)
     }
 
     pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
@@ -343,19 +325,18 @@ impl<C: Component> Arena<C> {
         token.next_unique = unique.overflowing_inc();
         if token.next_unique == Default::default() { panic!("component uniques exhausted"); }
         let unique = unique.overflowing_add(token.unique_base);
-        if let Some(index) = self.vacancies.pop() {
+        if let Some(index) = self.vacancy {
             let id = Id { index, unique };
             let item = (unique, component(id));
             let index_as_usize = index.into_usize().expect("invalid ComponentIndex");
-            let none = self.items[index_as_usize].replace(item);
-            debug_assert!(none.is_none());
+            self.vacancy = replace(&mut self.items[index_as_usize], Right(item)).left().expect("Arena::push logic error");
             id
         } else {
             let index = <<C as Component>::Class as ComponentClass>::Index::from_usize(self.items.len())
                 .expect("component indexes exhausted");
             let id = Id { index, unique };
             let item = (unique, component(id));
-            self.items.push(Some(item));
+            self.items.push(Right(item));
             id
         }
     }
@@ -364,22 +345,27 @@ impl<C: Component> Arena<C> {
     pub fn pop(&mut self, id: Id<C>) -> Option<C> {
         let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
-        self.items[index_as_usize].take().and_then(|(unique, component)| {
-            if unique == id.unique {
-                self.vacancies.push(id.index);
-                Some(component)
-            } else {
-                let none = self.items[index_as_usize].replace((unique, component));
-                debug_assert!(none.is_none());
+        match replace(&mut self.items[index_as_usize], Left(self.vacancy)) {
+            Left(vacancy) => {
+                self.items[index_as_usize] = Left(vacancy);
                 None
+            },
+            Right((unique, component)) => {
+                if unique == id.unique {
+                    self.vacancy = Some(id.index);
+                    Some(component)
+                } else {
+                    self.items[index_as_usize] = Right((unique, component));
+                    None
+                }
             }
-        })
+        }
     }
 
     pub fn get(&self, id: Id<C>) -> Option<&C> {
         let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
-        self.items[index_as_usize].as_ref().and_then(|&(unique, ref component)| {
+        self.items[index_as_usize].as_ref().right().and_then(|&(unique, ref component)| {
             if unique == id.unique {
                 Some(component)
             } else {
@@ -391,7 +377,7 @@ impl<C: Component> Arena<C> {
     pub fn get_mut(&mut self, id: Id<C>) -> Option<&mut C> {
         let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
-        self.items[index_as_usize].as_mut().and_then(|&mut (unique, ref mut component)| {
+        self.items[index_as_usize].as_mut().right().and_then(|&mut (unique, ref mut component)| {
             if unique == id.unique {
                 Some(component)
             } else {
