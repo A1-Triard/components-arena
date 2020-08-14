@@ -8,11 +8,11 @@ extern crate macro_attr;
 extern crate components_arena;
 
 mod widgets {
-    use std::num::NonZeroU32;
+    use std::num::{NonZeroU16, NonZeroU32};
     use components_arena::{Arena, Id, ComponentClassMutex};
 
     macro_attr! {
-        #[derive(Component!(index=u16, unique=NonZeroU32, class=WidgetDataComponent))]
+        #[derive(Component!(index=NonZeroU16, unique=NonZeroU32, class=WidgetDataComponent))]
         struct WidgetData<T> {
             parent: Option<Id<WidgetData<T>>>,
             next: Id<WidgetData<T>>,

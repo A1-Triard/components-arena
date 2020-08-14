@@ -20,7 +20,6 @@ use std::collections::TryReserveError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::hint::unreachable_unchecked;
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
 use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,49 +40,49 @@ use std::ops::Deref;
 /// but second one, unique, is distinct for all components
 /// created during application run time.
 ///
-/// # Safety
+/// # Correctness
 ///
-/// Safe implementation should purely, correctly and consistently implement
+/// Correct implementation should purely, correctly and consistently implement
 /// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
 ///
 /// The `inc` function should be pure, and produce
 /// a serie of distinct values when applied cycely to `None`.
-pub unsafe trait ComponentUnique: Debug + Copy + Eq + Hash + Ord {
+pub trait ComponentUnique: Debug + Copy + Eq + Hash + Ord {
     /// Takes last generated value and returns next free one.
     fn inc(this: Option<Self>) -> Option<Self>;
 }
 
-unsafe impl ComponentUnique for NonZeroU8 {
+impl ComponentUnique for NonZeroU8 {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
 }
 
-unsafe impl ComponentUnique for NonZeroU16 {
+impl ComponentUnique for NonZeroU16 {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
 }
 
-unsafe impl ComponentUnique for NonZeroU32 {
+impl ComponentUnique for NonZeroU32 {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
 }
 
-unsafe impl ComponentUnique for NonZeroU64 {
+impl ComponentUnique for NonZeroU64 {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
 }
 
-unsafe impl ComponentUnique for NonZeroU128 {
+impl ComponentUnique for NonZeroU128 {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
 }
 
-unsafe impl ComponentUnique for NonZeroUsize {
+impl ComponentUnique for NonZeroUsize {
     fn inc(this: Option<Self>) -> Option<Self> {
         Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
     }
@@ -98,26 +97,47 @@ unsafe impl ComponentUnique for NonZeroUsize {
 /// but second one, unique, is distinct for all components
 /// created during application run time.
 ///
-/// # Safety
+/// # Correctness
 ///
-/// Safe implementation should purely, correctly and consistently implement
+/// Correct implementation should purely, correctly and consistently implement
 /// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
 ///
-/// The `TryInto<usize>` and `TryFrom<usize>` implementaions should be pure,
-/// and if `try_from(n)` is `Ok(x)` then `try_into(x)` should be `Ok(n)`.
-pub unsafe trait ComponentIndex: Debug + Copy + Eq + Hash + Ord + TryInto<usize> + TryFrom<usize> { }
+/// The `from_usize` and `into_usize` functions should be pure,
+/// and if `from_usize(n)` is `Some(x)` then `into_usize(x)` should be `Some(n)`.
+pub trait ComponentIndex: Debug + Copy + Eq + Hash + Ord {
+    fn from_usize(i: usize) -> Option<Self>;
+    fn into_usize(self) -> Option<usize>;
+}
 
-unsafe impl ComponentIndex for u8 { }
+impl ComponentIndex for NonZeroU8 {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0.try_into().ok()?) }
+    fn into_usize(self) -> Option<usize> { Some(usize::try_from(self.get()).ok()?.overflowing_sub(1).0) }
+}
 
-unsafe impl ComponentIndex for u16 { }
+impl ComponentIndex for NonZeroU16 {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0.try_into().ok()?) }
+    fn into_usize(self) -> Option<usize> { Some(usize::try_from(self.get()).ok()?.overflowing_sub(1).0) }
+}
 
-unsafe impl ComponentIndex for u32 { }
+impl ComponentIndex for NonZeroU32 {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0.try_into().ok()?) }
+    fn into_usize(self) -> Option<usize> { Some(usize::try_from(self.get()).ok()?.overflowing_sub(1).0) }
+}
 
-unsafe impl ComponentIndex for u64 { }
+impl ComponentIndex for NonZeroU64 {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0.try_into().ok()?) }
+    fn into_usize(self) -> Option<usize> { Some(usize::try_from(self.get()).ok()?.overflowing_sub(1).0) }
+}
 
-unsafe impl ComponentIndex for u128 { }
+impl ComponentIndex for NonZeroU128 {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0.try_into().ok()?) }
+    fn into_usize(self) -> Option<usize> { Some(usize::try_from(self.get()).ok()?.overflowing_sub(1).0) }
+}
 
-unsafe impl ComponentIndex for usize { }
+impl ComponentIndex for NonZeroUsize {
+    fn from_usize(i: usize) -> Option<Self> { Self::new(i.overflowing_add(1).0) }
+    fn into_usize(self) -> Option<usize> { Some(self.get().overflowing_sub(1).0) }
+}
 
 /// The return type of the `ComponentClass::lock` function.
 ///
@@ -149,9 +169,9 @@ impl Default for ComponentClassLock {
 /// common non-generic uninhabited type `XComponent` and implement
 /// `ComponentClass` for this synthetic type.
 ///
-/// # Safety
+/// # Correctness
 ///
-/// Correct safe implementation should return reference to the one and same
+/// Correct implementation should return reference to the one and same
 /// `ComponentClassLock` instance from the `lock` function.
 ///
 /// Also it should be garanteed that no other `ComponentClass` implementation
@@ -163,7 +183,7 @@ impl Default for ComponentClassLock {
 /// use components_arena::{ComponentClass, ComponentClassLock};
 ///
 /// struct MyComponent { /* ... */ }
-/// unsafe impl ComponentClass for MyComponent {
+/// impl ComponentClass for MyComponent {
 ///     fn lock() -> &'static ComponentClassLock {
 ///         static CLASS_LOCK: ComponentClassLock = ComponentClassLock::new();
 ///         &CLASS_LOCK
@@ -173,7 +193,7 @@ impl Default for ComponentClassLock {
 ///     type Unique = std::num::NonZeroU64;
 /// }
 /// ```
-pub unsafe trait ComponentClass {
+pub trait ComponentClass {
     /// First part of compound component id, distincting all alive components.
     type Index: ComponentIndex;
 
@@ -312,12 +332,13 @@ impl<C: Component> Arena<C> {
         if let Some(index) = self.vacancies.pop() {
             let id = Id { index, unique };
             let item = (unique, component(id));
-            let index_as_usize = index.try_into().unwrap_or_else(|_| unsafe { unreachable_unchecked() });
+            let index_as_usize = index.into_usize().expect("invalid ComponentIndex");
             let none = self.items[index_as_usize].replace(item);
             debug_assert!(none.is_none());
             id
         } else {
-            let index = self.items.len().try_into().unwrap_or_else(|_| panic!("component indexes exhausted"));
+            let index = <<C as Component>::Class as ComponentClass>::Index::from_usize(self.items.len())
+                .expect("component indexes exhausted");
             let id = Id { index, unique };
             let item = (unique, component(id));
             self.items.push(Some(item));
@@ -327,7 +348,7 @@ impl<C: Component> Arena<C> {
 
     #[must_use]
     pub fn pop(&mut self, id: Id<C>) -> Option<C> {
-        let index_as_usize = id.index.try_into().unwrap_or_else(|_| unsafe { unreachable_unchecked() });
+        let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
         self.items[index_as_usize].take().and_then(|(unique, component)| {
             if unique == id.unique {
@@ -342,7 +363,7 @@ impl<C: Component> Arena<C> {
     }
 
     pub fn get(&self, id: Id<C>) -> Option<&C> {
-        let index_as_usize = id.index.try_into().unwrap_or_else(|_| unsafe { unreachable_unchecked() });
+        let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
         self.items[index_as_usize].as_ref().and_then(|&(unique, ref component)| {
             if unique == id.unique {
@@ -354,7 +375,7 @@ impl<C: Component> Arena<C> {
     }
 
     pub fn get_mut(&mut self, id: Id<C>) -> Option<&mut C> {
-        let index_as_usize = id.index.try_into().unwrap_or_else(|_| unsafe { unreachable_unchecked() });
+        let index_as_usize = id.index.into_usize().expect("invalid ComponentIndex");
         if self.items.len() <= index_as_usize { return None; }
         self.items[index_as_usize].as_mut().and_then(|&mut (unique, ref mut component)| {
             if unique == id.unique {
@@ -813,7 +834,7 @@ macro_rules! Component {
         }
     };
     (@impl $name:ident, $unique:ty, $index:ty) => {
-        unsafe impl $crate::ComponentClass for $name {
+        impl $crate::ComponentClass for $name {
             type Unique = $unique;
             type Index = $index;
             fn lock() -> &'static $crate::ComponentClassLock {
@@ -827,7 +848,7 @@ macro_rules! Component {
     };
     (@impl ($($p:tt $($c:tt)?)?) $name:ident, $unique:ty, $index:ty, $class:ident, < $g:tt >, < $r:tt >) => {
         $($p $($c)?)? enum $class { }
-        unsafe impl $crate::ComponentClass for $class {
+        impl $crate::ComponentClass for $class {
             type Unique = $unique;
             type Index = $index;
             fn lock() -> &'static $crate::ComponentClassLock {
