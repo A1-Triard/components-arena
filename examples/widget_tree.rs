@@ -6,11 +6,10 @@ extern crate macro_attr;
 extern crate components_arena;
 
 mod widgets {
-    use std::num::{NonZeroU16};
     use components_arena::{Arena, Id, ComponentClassMutex};
 
     macro_attr! {
-        #[derive(Component!(index=NonZeroU16, unique=u32))]
+        #[derive(Component!)]
         struct WidgetData {
             parent: Option<Id<WidgetData>>,
             next: Id<WidgetData>,
@@ -45,14 +44,14 @@ mod widgets {
             let widget = widgets.arena.push(&mut WIDGET.lock().unwrap(), |this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
-            if let Some(prev) = widgets.arena.get_mut(parent.0).unwrap().last_child.replace(widget) {
-                widgets.arena.get_mut(widget).unwrap().next = prev;
+            if let Some(prev) = widgets.arena[parent.0].last_child.replace(widget) {
+                widgets.arena[widget].next = prev;
             }
             Widget(widget)
         }
 
         pub fn parent(self, widgets: &Widgets) -> Option<Widget> {
-            widgets.arena.get(self.0).unwrap().parent.map(Widget)
+            widgets.arena[self.0].parent.map(Widget)
         }
     }
 }
