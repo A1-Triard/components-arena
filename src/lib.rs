@@ -320,6 +320,9 @@ impl<C: Component> Arena<C> {
         self.items.try_reserve_exact(additional)
     }
 
+    pub fn no_broken_id(&mut self) {
+    }
+
     pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
         let unique = token.next_unique;
         token.next_unique = unique.overflowing_inc();
