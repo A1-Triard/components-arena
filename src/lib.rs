@@ -20,7 +20,6 @@ use std::collections::TryReserveError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::mem::{replace};
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
 use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,36 +40,65 @@ use std::ops::Deref;
 /// but second one, unique, is distinct for all components
 /// created during application run time.
 ///
-/// The `inc` function should be pure, and produce
-/// a serie of distinct values when applied cycely to `Default::default()`.
-/// The serie should end with `Default::default()`.
+/// The `ComponentUnique` correct implementation should behave
+/// as primitive unsigned integer.
 pub trait ComponentUnique: Debug + Copy + Eq + Hash + Ord + Default {
-    /// Takes last generated value and returns next free one or `Default::default()`.
-    fn inc(self) -> Self;
+    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if overflow occurred.
+    fn checked_sub(self, rhs: Self) -> Option<Self>;
+
+    /// Calculates `self + rhs`. If an overflow would have occurred then the wrapped value is returned.
+    fn overflowing_add(self, d: Self) -> Self;
+
+    /// Calculates `self + 1`. If an overflow would have occurred then the wrapped value is returned.
+    fn overflowing_inc(self) -> Self;
 }
 
 impl ComponentUnique for u8 {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 impl ComponentUnique for u16 {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 impl ComponentUnique for u32 {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 impl ComponentUnique for u64 {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 impl ComponentUnique for u128 {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 impl ComponentUnique for usize {
-    fn inc(self) -> Self { self.overflowing_add(1).0 }
+    fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+
+    fn overflowing_add(self, rhs: Self) -> Self { self.overflowing_add(rhs).0 }
+
+    fn overflowing_inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 /// An implementor of the `ComponentIndex` trait
@@ -239,7 +267,10 @@ pub struct Arena<C: Component> {
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
-pub struct ComponentClassToken<C: ComponentClass>(C::Unique);
+pub struct ComponentClassToken<C: ComponentClass> {
+    next_unique: C::Unique,
+    unique_base: C::Unique,
+}
 
 impl<C: ComponentClass> ComponentClassToken<C> {
     pub fn new() -> Option<ComponentClassToken<C>> {
@@ -247,7 +278,10 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken(Default::default()))
+            Some(ComponentClassToken {
+                next_unique: Default::default(),
+                unique_base: Default::default()
+            })
         }
     }
 }
@@ -305,9 +339,10 @@ impl<C: Component> Arena<C> {
     }
 
     pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
-        let unique = token.0;
-        let unique = replace(&mut token.0, unique.inc());
-        if token.0 == Default::default() { panic!("component uniques exhausted"); }
+        let unique = token.next_unique;
+        token.next_unique = unique.overflowing_inc();
+        if token.next_unique == Default::default() { panic!("component uniques exhausted"); }
+        let unique = unique.overflowing_add(token.unique_base);
         if let Some(index) = self.vacancies.pop() {
             let id = Id { index, unique };
             let item = (unique, component(id));
