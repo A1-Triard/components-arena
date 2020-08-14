@@ -20,6 +20,7 @@ use std::collections::TryReserveError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::mem::{replace};
 use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize};
 use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,52 +41,36 @@ use std::ops::Deref;
 /// but second one, unique, is distinct for all components
 /// created during application run time.
 ///
-/// # Correctness
-///
-/// Correct implementation should purely, correctly and consistently implement
-/// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
-///
 /// The `inc` function should be pure, and produce
-/// a serie of distinct values when applied cycely to `None`.
-pub trait ComponentUnique: Debug + Copy + Eq + Hash + Ord {
-    /// Takes last generated value and returns next free one.
-    fn inc(this: Option<Self>) -> Option<Self>;
+/// a serie of distinct values when applied cycely to `Default::default()`.
+/// The serie should end with `Default::default()`.
+pub trait ComponentUnique: Debug + Copy + Eq + Hash + Ord + Default {
+    /// Takes last generated value and returns next free one or `Default::default()`.
+    fn inc(self) -> Self;
 }
 
-impl ComponentUnique for NonZeroU8 {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for u8 {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
-impl ComponentUnique for NonZeroU16 {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for u16 {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
-impl ComponentUnique for NonZeroU32 {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for u32 {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
-impl ComponentUnique for NonZeroU64 {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for u64 {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
-impl ComponentUnique for NonZeroU128 {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for u128 {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
-impl ComponentUnique for NonZeroUsize {
-    fn inc(this: Option<Self>) -> Option<Self> {
-        Self::new(this.map_or(0, |x| x.get()).overflowing_add(1).0)
-    }
+impl ComponentUnique for usize {
+    fn inc(self) -> Self { self.overflowing_add(1).0 }
 }
 
 /// An implementor of the `ComponentIndex` trait
@@ -96,11 +81,6 @@ impl ComponentUnique for NonZeroUsize {
 /// First part, index, is distinct for all alive components,
 /// but second one, unique, is distinct for all components
 /// created during application run time.
-///
-/// # Correctness
-///
-/// Correct implementation should purely, correctly and consistently implement
-/// `Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, and `Ord` traits.
 ///
 /// The `from_usize` and `into_usize` functions should be pure,
 /// and if `from_usize(n)` is `Some(x)` then `into_usize(x)` should be `Some(n)`.
@@ -168,8 +148,6 @@ impl Default for ComponentClassLock {
 /// So, if some component type `X` is generic, normally you should introduce
 /// common non-generic uninhabited type `XComponent` and implement
 /// `ComponentClass` for this synthetic type.
-///
-/// # Correctness
 ///
 /// Correct implementation should return reference to the one and same
 /// `ComponentClassLock` instance from the `lock` function.
@@ -261,7 +239,7 @@ pub struct Arena<C: Component> {
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
-pub struct ComponentClassToken<C: ComponentClass>(Option<C::Unique>);
+pub struct ComponentClassToken<C: ComponentClass>(C::Unique);
 
 impl<C: ComponentClass> ComponentClassToken<C> {
     pub fn new() -> Option<ComponentClassToken<C>> {
@@ -269,7 +247,7 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken(None))
+            Some(ComponentClassToken(Default::default()))
         }
     }
 }
@@ -327,8 +305,9 @@ impl<C: Component> Arena<C> {
     }
 
     pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
-        let unique = <<C as Component>::Class as ComponentClass>::Unique::inc(token.0).expect("component ids exhausted");
-        token.0 = Some(unique);
+        let unique = token.0;
+        let unique = replace(&mut token.0, unique.inc());
+        if token.0 == Default::default() { panic!("component uniques exhausted"); }
         if let Some(index) = self.vacancies.pop() {
             let id = Id { index, unique };
             let item = (unique, component(id));
