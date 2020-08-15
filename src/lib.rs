@@ -105,13 +105,14 @@ pub trait Component {
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
 pub struct Id<C: Component> {
     index: usize,
-    unique: NonZeroUsize,
+    tag: NonZeroUsize,
     phantom: PhantomData<C>
 }
 
 /// Unordered container with random access.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
+    tag_rng: SmallRng,
     items: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
     vacancy: Option<usize>,
 }
@@ -137,14 +138,14 @@ pub struct Arena<C: Component> {
 /// // ...
 ///
 /// fn main() {
-///     let mut arena = Arena::new();
-///     let id = arena.push(&mut MY_COMPONENT.lock().unwrap(), |_| MyComponent { /* ... */ });
+///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+///     let id = arena.push(|_| MyComponent { /* ... */ });
 /// }
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
 pub struct ComponentClassToken<C: ComponentClass> {
-    unique_seed: SmallRng,
+    tag_seed_rng: SmallRng,
     phantom: PhantomData<C>
 }
 
@@ -154,18 +155,26 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken { unique_seed: SmallRng::seed_from_u64(42), phantom: PhantomData })
+            Some(ComponentClassToken { tag_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomData })
         }
     }
 }
 
 impl<C: Component> Arena<C> {
-    pub fn new() -> Self {
-        Arena { items: Vec::new(), vacancy: None }
+    pub fn new(class: &mut ComponentClassToken<C::Class>) -> Self {
+        Arena {
+            tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
+            items: Vec::new(),
+            vacancy: None
+        }
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        Arena { items: Vec::with_capacity(capacity), vacancy: None }
+    pub fn with_capacity(capacity: usize, class: &mut ComponentClassToken<C::Class>) -> Self {
+        Arena {
+            tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
+            items: Vec::with_capacity(capacity),
+            vacancy: None
+        }
     }
 
     pub fn capacity(&self) -> usize { self.items.capacity() }
@@ -188,20 +197,20 @@ impl<C: Component> Arena<C> {
         self.items.try_reserve_exact(additional)
     }
 
-    pub fn push(&mut self, token: &mut ComponentClassToken<C::Class>, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
-        let mut unique = 0usize.to_le_bytes();
-        token.unique_seed.fill_bytes(&mut unique[..]);
-        let unique = NonZeroUsize::new(usize::from_le_bytes(unique)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(43) });
+    pub fn push(&mut self, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
+        let mut tag = 0usize.to_le_bytes();
+        self.tag_rng.fill_bytes(&mut tag[..]);
+        let tag = NonZeroUsize::new(usize::from_le_bytes(tag)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(43) });
         if let Some(index) = self.vacancy {
-            let id = Id { index, unique, phantom: PhantomData };
-            let item = (unique, component(id));
+            let id = Id { index, tag, phantom: PhantomData };
+            let item = (tag, component(id));
             self.vacancy = replace(&mut self.items[index], Right(item)).left()
                 .unwrap_or_else(|| unsafe { unreachable_unchecked() });
             id
         } else {
             let index = self.items.len();
-            let id = Id { index, unique, phantom: PhantomData };
-            let item = (unique, component(id));
+            let id = Id { index, tag, phantom: PhantomData };
+            let item = (tag, component(id));
             self.items.push(Right(item));
             id
         }
@@ -214,12 +223,12 @@ impl<C: Component> Arena<C> {
                 self.items[id.index] = Left(vacancy);
                 panic!("invalid id");
             },
-            Right((unique, component)) => {
-                if unique == id.unique {
+            Right((tag, component)) => {
+                if tag == id.tag {
                     self.vacancy = Some(id.index);
                     component
                 } else {
-                    self.items[id.index] = Right((unique, component));
+                    self.items[id.index] = Right((tag, component));
                     panic!("invalid id");
                 }
             }
@@ -227,24 +236,20 @@ impl<C: Component> Arena<C> {
     }
 }
 
-impl<C: Component> Default for Arena<C> {
-    fn default() -> Self { Arena::new() }
-}
-
 impl<C: Component> Index<Id<C>> for Arena<C> {
     type Output = C;
 
     fn index(&self, id: Id<C>) -> &C {
-        let &(unique, ref component) = self.items[id.index].as_ref().right().expect("invalid id");
-        if unique != id.unique { panic!("invalid id"); }
+        let &(tag, ref component) = self.items[id.index].as_ref().right().expect("invalid id");
+        if tag != id.tag { panic!("invalid id"); }
         component
     }
 }
 
 impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     fn index_mut(&mut self, id: Id<C>) -> &mut C {
-        let &mut (unique, ref mut component) = self.items[id.index].as_mut().right().expect("invalid id");
-        if unique != id.unique { panic!("invalid id"); }
+        let &mut (tag, ref mut component) = self.items[id.index].as_mut().right().expect("invalid id");
+        if tag != id.tag { panic!("invalid id"); }
         component
     }
 }
@@ -292,8 +297,8 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// // ...
 ///
 /// fn main() {
-///     let mut arena = Arena::new();
-///     let id = arena.push(&mut ITEM.lock().unwrap(), |_| Item { /* ... */ });
+///     let mut arena = Arena::new(&mut ITEM.lock().unwrap());
+///     let id = arena.push(|_| Item { /* ... */ });
 /// }
 /// ```
 ///
@@ -318,11 +323,11 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// // ...
 ///
 /// fn main() {
-///     let mut arena_u8 = Arena::new();
-///     let _ = arena_u8.push(&mut ITEM.lock().unwrap(), |_| Item { context: 7u8 });
+///     let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
+///     let _ = arena_u8.push(|_| Item { context: 7u8 });
 ///
-///     let mut arena_u32 = Arena::new();
-///     let _ = arena_u32.push(&mut ITEM.lock().unwrap(), |_| Item { context: 7u32 });
+///     let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
+///     let _ = arena_u32.push(|_| Item { context: 7u32 });
 /// }
 /// ```
 #[macro_export]

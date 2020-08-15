@@ -32,8 +32,8 @@ mod widgets {
 
     impl Widgets {
         pub fn new(token: &mut WidgetsToken) -> Widgets {
-            let mut arena = Arena::new();
-            let root = arena.push(&mut token.0, |this| WidgetData {
+            let mut arena = Arena::new(&mut token.0);
+            let root = arena.push(|this| WidgetData {
                 parent: None, next: this, last_child: None
             });
             Widgets { arena, root }
@@ -46,8 +46,8 @@ mod widgets {
     pub struct Widget(Id<WidgetData>);
 
     impl Widget {
-        pub fn new(token: &mut WidgetsToken, widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.push(&mut token.0, |this| WidgetData {
+        pub fn new(widgets: &mut Widgets, parent: Widget) -> Widget {
+            let widget = widgets.arena.push(|this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
             if let Some(prev) = widgets.arena[parent.0].last_child.replace(widget) {
@@ -67,6 +67,6 @@ use widgets::*;
 fn main() {
     let token = &mut WidgetsToken::new().unwrap();
     let widgets = &mut Widgets::new(token);
-    let widget = Widget::new(token, widgets, widgets.root());
+    let widget = Widget::new(widgets, widgets.root());
     assert_eq!(widget.parent(widgets), Some(widgets.root()));
 }
