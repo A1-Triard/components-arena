@@ -150,6 +150,8 @@ pub struct ComponentClassToken<C: ComponentClass> {
 }
 
 impl<C: ComponentClass> ComponentClassToken<C> {
+    /// Creates components shared data storage on first call for every component type `C`.
+    /// All subsequent calls will return `None`.
     pub fn new() -> Option<ComponentClassToken<C>> {
         let lock = C::lock();
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
@@ -216,6 +218,11 @@ impl<C: Component> Arena<C> {
         }
     }
 
+    /// Removes component with provided id.
+    ///
+    /// The arena tries to detect invalid provided id (i. e. foreign, or previously dropped),
+    /// and panics if such detection hits. But it is important to pay respect to the fact
+    /// there is small probability that invalid id will not be intercepted.
     #[must_use]
     pub fn pop(&mut self, id: Id<C>) -> C {
         match replace(&mut self.items[id.index], Left(self.vacancy)) {
