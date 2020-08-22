@@ -167,6 +167,7 @@ impl<C: ComponentClass> ComponentClassToken<C> {
 }
 
 impl<C: Component> Arena<C> {
+    /// Creates an arena instance.
     pub fn new(class: &mut ComponentClassToken<C::Class>) -> Self {
         Arena {
             tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
@@ -175,6 +176,7 @@ impl<C: Component> Arena<C> {
         }
     }
 
+    /// Creates an arena instance with the specified initial capacity.
     pub fn with_capacity(capacity: usize, class: &mut ComponentClassToken<C::Class>) -> Self {
         Arena {
             tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
@@ -183,8 +185,11 @@ impl<C: Component> Arena<C> {
         }
     }
 
+    /// Returns the number of elements the arena can hold without reallocating.
     pub fn capacity(&self) -> usize { self.items.capacity() }
 
+
+    /// Returns the maximum number of elements ever in the arena.
     pub fn len(&self) -> usize { self.items.len() }
 
     pub fn reserve(&mut self, additional: usize) { self.items.reserve(additional) }
