@@ -16,6 +16,10 @@ pub(crate) mod std {
 #[macro_use]
 extern crate derivative;
 
+#[cfg(test)]
+#[macro_use]
+extern crate macro_attr;
+
 use std::collections::TryReserveError;
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
@@ -341,70 +345,70 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 macro_rules! Component {
     (()
         $(pub $((crate))?)? enum $name:ident
-        $tail:tt ) => {
+        $($tail:tt)+ ) => {
         Component! {
             @impl $name
         }
     };
     (()
         $(pub $((crate))?)? struct $name:ident
-        $tail:tt ) => {
+        $($tail:tt)+ ) => {
         Component! {
             @impl $name
         }
     };
     ((class=$class:ident)
         enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl () $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
         struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl () $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
         pub(crate) enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl (pub(crate)) $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
         pub(crate) struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl (pub(crate)) $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
         pub enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl (pub) $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
         pub struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $tail:tt ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
             @impl (pub) $name, $class,
-            < $( $lt ),+ >,
-            < $( $lt $( : $clt $(+ $dlt )* )? ),+ >
+            [ $( $lt ),+ ],
+            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     (@impl $name:ident) => {
@@ -418,7 +422,7 @@ macro_rules! Component {
             type Class = Self;
         }
     };
-    (@impl ($($p:tt $($c:tt)?)?) $name:ident, $class:ident, < $g:tt >, < $r:tt >) => {
+    (@impl ($($p:tt $($c:tt)?)?) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
         $($p $($c)?)? enum $class { }
         impl $crate::ComponentClass for $class {
             fn lock() -> &'static $crate::ComponentClassLock {
@@ -426,8 +430,26 @@ macro_rules! Component {
                 &LOCK
             }
         }
-        impl< $g > $crate::Component for $name < $r > {
+        impl < $($g)+ > $crate::Component for $name < $($r)+ > {
             type Class = $class;
         }
     };
+}
+
+#[cfg(test)]
+mod test {
+    macro_attr! {
+        #[derive(Component!)]
+        struct NonGeneric { }
+    }
+
+    macro_attr! {
+        #[derive(Component!(class=GenericOneArgComponent))]
+        struct GenericOneArg<T>(T);
+    }
+ 
+    macro_attr! {
+        #[derive(Component!(class=GenericTwoArgsComponent))]
+        struct GenericTwoArgs<A, B>(A, B);
+    }
 }
