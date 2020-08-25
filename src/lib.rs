@@ -1,7 +1,7 @@
 #![deny(warnings)]
-#![feature(const_fn)]
-#![feature(try_reserve)]
-#![feature(shrink_to)]
+#![cfg_attr(feature="nightly", feature(const_fn))]
+#![cfg_attr(feature="nightly", feature(try_reserve))]
+#![cfg_attr(feature="nightly", feature(shrink_to))]
 
 #![cfg_attr(not(feature="std"), no_std)]
 #[cfg(not(feature="std"))]
@@ -20,6 +20,7 @@ extern crate derivative;
 #[macro_use]
 extern crate macro_attr;
 
+#[cfg(feature="nightly")]
 use std::collections::TryReserveError;
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
@@ -32,11 +33,11 @@ use std::vec::Vec;
 use either::{Either, Left, Right};
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 use once_cell::sync::{self};
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 use std::sync::Mutex;
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
 
 /// The return type of the `ComponentClass::lock` function.
@@ -249,14 +250,17 @@ impl<C: Component> Arena<C> {
     /// Panics if the new capacity overflows usize.
     pub fn reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
 
+    #[cfg(feature="nightly")]
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
     pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
+    #[cfg(feature="nightly")]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve(additional)
     }
 
+    #[cfg(feature="nightly")]
     pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve_exact(additional)
     }
@@ -323,10 +327,10 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 }
 
 /// Helps to store `ComponentClassToken` in a static.
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
 
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 impl<C: ComponentClass> ComponentClassMutex<C> {
     pub const fn new() -> Self {
         ComponentClassMutex(sync::Lazy::new(|| Mutex::new(
@@ -335,7 +339,7 @@ impl<C: ComponentClass> ComponentClassMutex<C> {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(all(feature="std", feature="nightly"))]
 impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
     type Target = Mutex<ComponentClassToken<C>>;
 

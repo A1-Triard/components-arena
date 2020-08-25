@@ -12,8 +12,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/A1-Triard/components-arena"
 
 [features]
-default = ["std"]
+default = ["std", "nightly"]
 std = ["once_cell"]
+nightly = []
 
 [dependencies]
 derivative = "2.1.1"
