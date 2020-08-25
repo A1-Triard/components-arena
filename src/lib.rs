@@ -71,10 +71,8 @@ impl Default for ComponentClassLock {
 ///
 /// Correct implementation should return reference to the one and same
 /// `ComponentClassLock` instance from the `lock` function.
-///
 /// Also it should be garanteed that no other `ComponentClass` implementation
 /// returns same `ComponentClassLock` instance.
-///
 /// This requirements can be easaly satisfied with private static:
 ///
 /// ```rust
@@ -143,7 +141,7 @@ pub struct Arena<C: Component> {
 ///
 /// fn main() {
 ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-///     let id = arena.push(|_| MyComponent { /* ... */ });
+///     let id = arena.insert(|_| MyComponent { /* ... */ });
 /// }
 /// ```
 ///
@@ -190,10 +188,65 @@ impl<C: Component> Arena<C> {
 
 
     /// Returns the maximum number of elements ever in the arena.
+    ///
+    /// Arena `len` never decreases.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// #[macro_use]
+    /// extern crate macro_attr;
+    /// #[macro_use]
+    /// extern crate components_arena;
+    /// use components_arena::{ComponentClassMutex, Arena};
+    ///
+    /// macro_attr! {
+    ///     #[derive(Component!)]
+    ///     struct MyComponent { /* ... */ }
+    /// }
+    ///
+    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+    ///
+    /// // ...
+    ///
+    /// fn main() {
+    ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    ///     assert_eq!(arena.len(), 0);
+    ///     let id_1 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     assert_eq!(arena.len(), 1);
+    ///     let id_2 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     assert_eq!(arena.len(), 2);
+    ///     arena.remove(id_1);
+    ///     assert_eq!(arena.len(), 2);
+    ///     let id_3 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     assert_eq!(arena.len(), 2);
+    ///     let id_4 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     assert_eq!(arena.len(), 3);
+    /// }
+    /// ```
     pub fn len(&self) -> usize { self.items.len() }
 
+    /// Reserves capacity for at least `additional` more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling reserve, capacity will be greater than or equal to
+    /// `self.len() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
     pub fn reserve(&mut self, additional: usize) { self.items.reserve(additional) }
 
+    /// Reserves the minimum capacity for exactly `additional` more elements.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to
+    /// `self.len() + additional`. Does nothing if the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer reserve if future insertions are expected.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
     pub fn reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
 
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
@@ -208,7 +261,7 @@ impl<C: Component> Arena<C> {
         self.items.try_reserve_exact(additional)
     }
 
-    pub fn push(&mut self, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
+    pub fn insert(&mut self, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
         let mut tag = 0usize.to_le_bytes();
         self.tag_rng.fill_bytes(&mut tag[..]);
         let tag = NonZeroUsize::new(usize::from_le_bytes(tag)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(43) });
@@ -232,8 +285,7 @@ impl<C: Component> Arena<C> {
     /// The arena tries to detect invalid provided id (i. e. foreign, or previously dropped),
     /// and panics if such detection hits. But it is important to pay respect to the fact
     /// there is small probability that invalid id will not be intercepted.
-    #[must_use]
-    pub fn pop(&mut self, id: Id<C>) -> C {
+    pub fn remove(&mut self, id: Id<C>) -> C {
         match replace(&mut self.items[id.index], Left(self.vacancy)) {
             Left(vacancy) => {
                 self.items[id.index] = Left(vacancy);
@@ -314,7 +366,7 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// fn main() {
 ///     let mut arena = Arena::new(&mut ITEM.lock().unwrap());
-///     let id = arena.push(|_| Item { /* ... */ });
+///     let id = arena.insert(|_| Item { /* ... */ });
 /// }
 /// ```
 ///
@@ -340,10 +392,10 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// fn main() {
 ///     let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u8.push(|_| Item { context: 7u8 });
+///     let _ = arena_u8.insert(|_| Item { context: 7u8 });
 ///
 ///     let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u32.push(|_| Item { context: 7u32 });
+///     let _ = arena_u32.insert(|_| Item { context: 7u32 });
 /// }
 /// ```
 #[macro_export]

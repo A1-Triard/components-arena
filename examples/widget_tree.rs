@@ -27,7 +27,7 @@ mod widgets {
     impl Widgets {
         pub fn new() -> Widgets {
             let mut arena = Arena::new(&mut WIDGET.lock().unwrap());
-            let root = arena.push(|this| WidgetData {
+            let root = arena.insert(|this| WidgetData {
                 parent: None, next: this, last_child: None
             });
             Widgets { arena, root }
@@ -41,7 +41,7 @@ mod widgets {
 
     impl Widget {
         pub fn new(widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.push(|this| WidgetData {
+            let widget = widgets.arena.insert(|this| WidgetData {
                 parent: Some(parent.0), next: this, last_child: None
             });
             if let Some(prev) = widgets.arena[parent.0].last_child.replace(widget) {
