@@ -19,6 +19,9 @@ extern crate derivative;
 #[cfg(test)]
 #[macro_use]
 extern crate macro_attr;
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
 
 #[cfg(feature="nightly")]
 use std::collections::TryReserveError;
@@ -499,10 +502,7 @@ macro_rules! Component {
 
 #[cfg(test)]
 mod test {
-    macro_attr! {
-        #[derive(Component!)]
-        struct NonGeneric { }
-    }
+    use crate::*;
 
     macro_attr! {
         #[derive(Component!(class=GenericOneArgComponent))]
@@ -512,5 +512,22 @@ mod test {
     macro_attr! {
         #[derive(Component!(class=GenericTwoArgsComponent))]
         struct GenericTwoArgs<A, B>(A, B);
+    }
+
+    macro_attr! {
+        #[derive(Component!)]
+        struct JustStruct { }
+    }
+
+    static JUST_STRUCT: ComponentClassMutex<JustStruct> = ComponentClassMutex::new();
+
+    #[quickcheck]
+    fn new_arena_len_is_zero() -> bool {
+        <Arena::<JustStruct>>::new(&mut JUST_STRUCT.lock().unwrap()).len() == 0
+    }
+
+    #[quickcheck]
+    fn new_with_capacity_arena_len_is_zero(capacity: usize) -> bool {
+        <Arena::<JustStruct>>::with_capacity(capacity, &mut JUST_STRUCT.lock().unwrap()).len() == 0
     }
 }
