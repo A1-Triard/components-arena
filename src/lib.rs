@@ -516,18 +516,29 @@ mod test {
 
     macro_attr! {
         #[derive(Component!)]
-        struct JustStruct { }
+        struct Test {
+            this: Id<Test>,
+            value: i8
+        }
     }
 
-    static JUST_STRUCT: ComponentClassMutex<JustStruct> = ComponentClassMutex::new();
+    static TEST: ComponentClassMutex<Test> = ComponentClassMutex::new();
 
     #[quickcheck]
-    fn new_arena_len_is_zero() -> bool {
-        <Arena::<JustStruct>>::new(&mut JUST_STRUCT.lock().unwrap()).len() == 0
+    fn new_arena_len_is_zero(capacity: Option<usize>) -> bool {
+        capacity.map_or_else(
+            || <Arena::<Test>>::new(&mut TEST.lock().unwrap()),
+            |capacity| <Arena::<Test>>::with_capacity(capacity, &mut TEST.lock().unwrap())
+        ).len() == 0
     }
 
     #[quickcheck]
-    fn new_with_capacity_arena_len_is_zero(capacity: usize) -> bool {
-        <Arena::<JustStruct>>::with_capacity(capacity, &mut JUST_STRUCT.lock().unwrap()).len() == 0
+    fn arena_contains_inserted_item(capacity: Option<usize>, value: i8) -> bool {
+        let mut arena = capacity.map_or_else(
+            || Arena::new(&mut TEST.lock().unwrap()),
+            |capacity| Arena::with_capacity(capacity, &mut TEST.lock().unwrap())
+        );
+        let id = arena.insert(|this| Test { this, value });
+        arena[id].this == id && arena[id].value == value
     }
 }
