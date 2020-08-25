@@ -145,7 +145,7 @@ pub struct Arena<C: Component> {
 ///
 /// fn main() {
 ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-///     let id = arena.insert(|_| MyComponent { /* ... */ });
+///     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
 /// }
 /// ```
 ///
@@ -216,15 +216,15 @@ impl<C: Component> Arena<C> {
     /// fn main() {
     ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
     ///     assert_eq!(arena.len(), 0);
-    ///     let id_1 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     ///     assert_eq!(arena.len(), 1);
-    ///     let id_2 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     let id_2 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     ///     assert_eq!(arena.len(), 2);
     ///     arena.remove(id_1);
     ///     assert_eq!(arena.len(), 2);
-    ///     let id_3 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     let id_3 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     ///     assert_eq!(arena.len(), 2);
-    ///     let id_4 = arena.insert(|_| MyComponent { /* ... */ });
+    ///     let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     ///     assert_eq!(arena.len(), 3);
     /// }
     /// ```
@@ -268,22 +268,24 @@ impl<C: Component> Arena<C> {
         self.items.try_reserve_exact(additional)
     }
 
-    pub fn insert(&mut self, component: impl FnOnce(Id<C>) -> C) -> Id<C> {
+    pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
         let mut tag = 0usize.to_le_bytes();
         self.tag_rng.fill_bytes(&mut tag[..]);
         let tag = NonZeroUsize::new(usize::from_le_bytes(tag)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(43) });
         if let Some(index) = self.vacancy {
             let id = Id { index, tag, phantom: PhantomData };
-            let item = (tag, component(id));
+            let (component, result) = component(id);
+            let item = (tag, component);
             self.vacancy = replace(&mut self.items[index], Right(item)).left()
                 .unwrap_or_else(|| unsafe { unreachable_unchecked() });
-            id
+            result
         } else {
             let index = self.items.len();
             let id = Id { index, tag, phantom: PhantomData };
-            let item = (tag, component(id));
+            let (component, result) = component(id);
+            let item = (tag, component);
             self.items.push(Right(item));
-            id
+            result
         }
     }
 
@@ -373,7 +375,7 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// fn main() {
 ///     let mut arena = Arena::new(&mut ITEM.lock().unwrap());
-///     let id = arena.insert(|_| Item { /* ... */ });
+///     let id = arena.insert(|id| (Item { /* ... */ }, id));
 /// }
 /// ```
 ///
@@ -399,10 +401,10 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// fn main() {
 ///     let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u8.insert(|_| Item { context: 7u8 });
+///     let _ = arena_u8.insert(|id| (Item { context: 7u8 }, id));
 ///
 ///     let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u32.insert(|_| Item { context: 7u32 });
+///     let _ = arena_u32.insert(|id| (Item { context: 7u32 }, id));
 /// }
 /// ```
 #[macro_export]
@@ -538,7 +540,7 @@ mod test {
             || Arena::new(&mut TEST.lock().unwrap()),
             |capacity| Arena::with_capacity(capacity, &mut TEST.lock().unwrap())
         );
-        let id = arena.insert(|this| Test { this, value });
+        let id = arena.insert(|this| (Test { this, value }, this));
         arena[id].this == id && arena[id].value == value
     }
 }
