@@ -298,14 +298,15 @@ impl<C: Component> Arena<C> {
 
     /// Shrinks the capacity of the arena with a lower bound.
     ///
-    /// The capacity will remain at least as large as both the `min_capacity` and the supplied value.
+    /// The capacity will remain at least as large as both the [`min_capacity`](Arena::min_capacity)
+    /// and the supplied value.
     #[cfg(feature="nightly")]
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
     /// Shrinks the capacity of the vector as much as possible.
     ///
-    /// It will drop down as close as possible to the `min_capacity` but the allocator
-    /// may still inform the arena that there is space for a few more elements.
+    /// It will drop down as close as possible to the [`min_capacity`](Arena::min_capacity)
+    /// but the allocator may still inform the arena that there is space for a few more elements.
     pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
     /// Tries to reserve capacity for at least additional more elements.
