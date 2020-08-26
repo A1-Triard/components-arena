@@ -224,8 +224,9 @@ impl<C: Component> Arena<C> {
 
 
     /// Returns the maximum number of elements ever in the arena.
+    /// The arena capacity cannot be less than `min_capacity`.
     ///
-    /// Arena `len` never decreases.
+    /// Arena `min_capacity` never decreases.
     ///
     /// # Examples
     ///
@@ -247,25 +248,25 @@ impl<C: Component> Arena<C> {
     ///
     /// fn main() {
     ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-    ///     assert_eq!(arena.len(), 0);
+    ///     assert_eq!(arena.min_capacity(), 0);
     ///     let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.len(), 1);
+    ///     assert_eq!(arena.min_capacity(), 1);
     ///     let id_2 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.len(), 2);
+    ///     assert_eq!(arena.min_capacity(), 2);
     ///     arena.remove(id_1);
-    ///     assert_eq!(arena.len(), 2);
+    ///     assert_eq!(arena.min_capacity(), 2);
     ///     let id_3 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.len(), 2);
+    ///     assert_eq!(arena.min_capacity(), 2);
     ///     let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.len(), 3);
+    ///     assert_eq!(arena.min_capacity(), 3);
     /// }
     /// ```
-    pub fn len(&self) -> usize { self.items.len() }
+    pub fn min_capacity(&self) -> usize { self.items.len() }
 
     /// Reserves capacity for at least `additional` more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
     /// After calling `reserve`, capacity will be greater than or equal to
-    /// `self.len() + additional`. Does nothing if capacity is already sufficient.
+    /// `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
     ///
     /// # Panics
     ///
@@ -274,7 +275,7 @@ impl<C: Component> Arena<C> {
 
     /// Reserves the minimum capacity for exactly `additional` more elements.
     /// After calling `reserve_exact`, capacity will be greater than or equal to
-    /// `self.len() + additional`. Does nothing if the capacity is already sufficient.
+    /// `self.min_capacity() + additional`. Does nothing if the capacity is already sufficient.
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
@@ -287,20 +288,20 @@ impl<C: Component> Arena<C> {
 
     /// Shrinks the capacity of the arena with a lower bound.
     ///
-    /// The capacity will remain at least as large as both the length and the supplied value.
+    /// The capacity will remain at least as large as both the `min_capacity` and the supplied value.
     #[cfg(feature="nightly")]
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
     /// Shrinks the capacity of the vector as much as possible.
     ///
-    /// It will drop down as close as possible to the length but the allocator
+    /// It will drop down as close as possible to the `min_capacity` but the allocator
     /// may still inform the arena that there is space for a few more elements.
     pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
     /// Tries to reserve capacity for at least additional more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
-    /// After calling `try_reserve`, capacity will be greater than or equal to `self.len() + additional`.
-    /// Does nothing if capacity is already sufficient.
+    /// After calling `try_reserve`, capacity will be greater than or equal
+    /// to `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
     ///
     /// # Errors
     ///
@@ -312,8 +313,8 @@ impl<C: Component> Arena<C> {
 
     /// Tries to reserve capacity for exactly additional more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
-    /// After calling `try_reserve_exact`, capacity will be greater than or equal to `self.len() + additional`.
-    /// Does nothing if capacity is already sufficient.
+    /// After calling `try_reserve_exact`, capacity will be greater than or equal
+    /// to `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
@@ -636,11 +637,11 @@ mod test {
     static TEST: ComponentClassMutex<Test> = ComponentClassMutex::new();
 
     #[quickcheck]
-    fn new_arena_len_is_zero(capacity: Option<usize>) -> bool {
+    fn new_arena_min_capacity_is_zero(capacity: Option<usize>) -> bool {
         capacity.map_or_else(
             || <Arena::<Test>>::new(&mut TEST.lock().unwrap()),
             |capacity| <Arena::<Test>>::with_capacity(capacity, &mut TEST.lock().unwrap())
-        ).len() == 0
+        ).min_capacity() == 0
     }
 
     #[quickcheck]
