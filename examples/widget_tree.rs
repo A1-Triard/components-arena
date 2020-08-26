@@ -1,65 +1,70 @@
 #![deny(warnings)]
+#![allow(dead_code)]
 
 #[macro_use]
 extern crate macro_attr;
 #[macro_use]
 extern crate components_arena;
 
-mod widgets {
+mod widget_tree {
     use components_arena::{Arena, Id, ComponentClassMutex};
 
     macro_attr! {
         #[derive(Component!)]
-        struct WidgetData {
-            parent: Option<Id<WidgetData>>,
-            next: Id<WidgetData>,
-            last_child: Option<Id<WidgetData>>,
+        struct WidgetNode {
+            parent: Option<Id<WidgetNode>>,
+            next: Id<WidgetNode>,
+            last_child: Option<Id<WidgetNode>>,
         }
     }
 
-    static WIDGET: ComponentClassMutex<WidgetData> = ComponentClassMutex::new();
+    static WIDGET_NODE: ComponentClassMutex<WidgetNode> = ComponentClassMutex::new();
 
-    pub struct Widgets {
-        arena: Arena<WidgetData>,
-        root: Id<WidgetData>,
+    pub struct WidgetTree {
+        arena: Arena<WidgetNode>,
+        root: Id<WidgetNode>,
     }
 
-    impl Widgets {
-        pub fn new() -> Widgets {
-            let mut arena = Arena::new(&mut WIDGET.lock().unwrap());
-            let root = arena.insert(|this| (WidgetData {
+    impl WidgetTree {
+        pub fn new() -> WidgetTree {
+            let mut arena = Arena::new(&mut WIDGET_NODE.lock().unwrap());
+            let root = arena.insert(|this| (WidgetNode {
                 parent: None, next: this, last_child: None
             }, this));
-            Widgets { arena, root }
+            WidgetTree { arena, root }
         }
 
         pub fn root(&self) -> Widget { Widget(self.root) }
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-    pub struct Widget(Id<WidgetData>);
+    pub struct Widget(Id<WidgetNode>);
 
     impl Widget {
-        pub fn new(widgets: &mut Widgets, parent: Widget) -> Widget {
-            let widget = widgets.arena.insert(|this| (WidgetData {
+        pub fn new(tree: &mut WidgetTree, parent: Widget) -> Widget {
+            let widget = tree.arena.insert(|this| (WidgetNode {
                 parent: Some(parent.0), next: this, last_child: None
             }, this));
-            if let Some(prev) = widgets.arena[parent.0].last_child.replace(widget) {
-                widgets.arena[widget].next = prev;
+            if let Some(prev) = tree.arena[parent.0].last_child.replace(widget) {
+                tree.arena[widget].next = prev;
             }
             Widget(widget)
         }
 
-        pub fn parent(self, widgets: &Widgets) -> Option<Widget> {
-            widgets.arena[self.0].parent.map(Widget)
+        pub fn drop(self, tree: &mut WidgetTree) {
+            tree.arena.remove(self.0);
+        }
+
+        pub fn parent(self, tree: &WidgetTree) -> Option<Widget> {
+            tree.arena[self.0].parent.map(Widget)
         }
     }
 }
 
-use widgets::*;
+use widget_tree::*;
 
 fn main() {
-    let widgets = &mut Widgets::new();
-    let widget = Widget::new(widgets, widgets.root());
-    assert_eq!(widget.parent(widgets), Some(widgets.root()));
+    let tree = &mut WidgetTree::new();
+    let widget = Widget::new(tree, tree.root());
+    assert_eq!(widget.parent(tree), Some(tree.root()));
 }
