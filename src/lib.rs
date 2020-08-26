@@ -31,6 +31,7 @@ use std::marker::PhantomData;
 use std::mem::replace;
 use std::num::{NonZeroUsize};
 use std::ops::{Index, IndexMut};
+#[cfg(feature="std")]
 use std::panic::{UnwindSafe, RefUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::vec::Vec;
@@ -116,10 +117,12 @@ pub struct Id<C: Component> {
     phantom: PhantomData<C>
 }
 
-impl<C: Component> RefUnwindSafe for Id<C> { }
 unsafe impl<C: Component> Send for Id<C> { }
 unsafe impl<C: Component> Sync for Id<C> { }
 impl<C: Component> Unpin for Id<C> { }
+#[cfg(feature="std")]
+impl<C: Component> RefUnwindSafe for Id<C> { }
+#[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
 /// Unordered container with random access.
@@ -162,10 +165,12 @@ pub struct ComponentClassToken<C: ComponentClass> {
     phantom: PhantomData<C>
 }
 
-impl<C: ComponentClass> RefUnwindSafe for ComponentClassToken<C> { }
 unsafe impl<C: ComponentClass> Send for ComponentClassToken<C> { }
 unsafe impl<C: ComponentClass> Sync for ComponentClassToken<C> { }
 impl<C: ComponentClass> Unpin for ComponentClassToken<C> { }
+#[cfg(feature="std")]
+impl<C: ComponentClass> RefUnwindSafe for ComponentClassToken<C> { }
+#[cfg(feature="std")]
 impl<C: ComponentClass> UnwindSafe for ComponentClassToken<C> { }
 
 impl<C: ComponentClass> ComponentClassToken<C> {
