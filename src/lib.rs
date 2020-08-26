@@ -232,7 +232,7 @@ impl<C: Component> Arena<C> {
 
     /// Reserves capacity for at least `additional` more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
-    /// After calling reserve, capacity will be greater than or equal to
+    /// After calling `reserve`, capacity will be greater than or equal to
     /// `self.len() + additional`. Does nothing if capacity is already sufficient.
     ///
     /// # Panics
@@ -246,28 +246,78 @@ impl<C: Component> Arena<C> {
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
-    /// Prefer reserve if future insertions are expected.
+    /// Prefer `reserve` if future insertions are expected.
     ///
     /// # Panics
     ///
     /// Panics if the new capacity overflows usize.
     pub fn reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
 
+    /// Shrinks the capacity of the arena with a lower bound.
+    ///
+    /// The capacity will remain at least as large as both the length and the supplied value.
     #[cfg(feature="nightly")]
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
+    /// Shrinks the capacity of the vector as much as possible.
+    ///
+    /// It will drop down as close as possible to the length but the allocator
+    /// may still inform the arena that there is space for a few more elements.
     pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
+    /// Tries to reserve capacity for at least additional more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve`, capacity will be greater than or equal to `self.len() + additional`.
+    /// Does nothing if capacity is already sufficient.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
     #[cfg(feature="nightly")]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve(additional)
     }
 
+    /// Tries to reserve capacity for exactly additional more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve_exact`, capacity will be greater than or equal to `self.len() + additional`.
+    /// Does nothing if capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer `try_reserve` if future insertions are expected.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
     #[cfg(feature="nightly")]
     pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve_exact(additional)
     }
 
+    /// Place new component into the arena.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// #[macro_use]
+    /// extern crate macro_attr;
+    /// #[macro_use]
+    /// extern crate components_arena;
+    /// use components_arena::{ComponentClassMutex, Arena};
+    ///
+    /// macro_attr! {
+    ///     #[derive(Component!)]
+    ///     struct MyComponent { /* ... */ }
+    /// }
+    ///
+    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+    ///
+    /// fn main() {
+    ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    ///     let new_component_id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// }
+    /// ```
     pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
         let mut tag = 0usize.to_le_bytes();
         self.tag_rng.fill_bytes(&mut tag[..]);
