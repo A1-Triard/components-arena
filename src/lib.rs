@@ -68,7 +68,7 @@ impl Default for ComponentClassLock {
 /// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
-/// an own `ComponentClassLock` instance for every specialization because Rust
+/// an own [`ComponentClassLock`](ComponentClassLock) instance for every specialization because Rust
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
@@ -76,7 +76,7 @@ impl Default for ComponentClassLock {
 /// `ComponentClass` for this synthetic type.
 ///
 /// Correct implementation should return reference to the one and same
-/// `ComponentClassLock` instance from the `lock` function.
+/// `ComponentClassLock` instance from the [`lock`](ComponentClass::lock) function.
 /// Also it should be garanteed that no other `ComponentClass` implementation
 /// returns same `ComponentClassLock` instance.
 /// This requirements can be easaly satisfied with private static:
@@ -99,6 +99,9 @@ pub trait ComponentClass {
 
 /// An implementor of the `Component` trait is a type, whose values can be placed into
 /// [`Arena`](Arena) container.
+///
+/// Normally, the implementation of this trait is derived
+/// using the [`Component!`](Component!) macro.
 pub trait Component {
     /// Component class.
     ///
@@ -135,7 +138,8 @@ pub struct Arena<C: Component> {
 
 /// [Component class](ComponentClass) static shared data.
 ///
-/// In the no-`no_std` environment it can be stored inside static `ComponentClassMutex`:
+/// In the no-`no_std` environment it can be stored inside static
+/// [`ComponentClassMutex`](ComponentClassMutex):
 ///
 /// ```rust
 /// #[macro_use]
@@ -400,6 +404,30 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 }
 
 /// Helps to store [`ComponentClassToken`](ComponentClassToken) in a static.
+///
+/// # Examples
+///
+/// ```rust
+/// #[macro_use]
+/// extern crate macro_attr;
+/// #[macro_use]
+/// extern crate components_arena;
+/// use components_arena::{ComponentClassMutex, Arena};
+///
+/// macro_attr! {
+///     #[derive(Component!)]
+///     struct MyComponent { /* ... */ }
+/// }
+///
+/// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+///
+/// // ...
+///
+/// fn main() {
+///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+///     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+/// }
+/// ```
 #[cfg(all(feature="std", feature="nightly"))]
 pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
 
