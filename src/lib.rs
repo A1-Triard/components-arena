@@ -31,6 +31,7 @@ use std::marker::PhantomData;
 use std::mem::replace;
 use std::num::{NonZeroUsize};
 use std::ops::{Index, IndexMut};
+use std::panic::{UnwindSafe, RefUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::vec::Vec;
 use either::{Either, Left, Right};
@@ -115,6 +116,12 @@ pub struct Id<C: Component> {
     phantom: PhantomData<C>
 }
 
+impl<C: Component> RefUnwindSafe for Id<C> { }
+unsafe impl<C: Component> Send for Id<C> { }
+unsafe impl<C: Component> Sync for Id<C> { }
+impl<C: Component> Unpin for Id<C> { }
+impl<C: Component> UnwindSafe for Id<C> { }
+
 /// Unordered container with random access.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
@@ -154,6 +161,12 @@ pub struct ComponentClassToken<C: ComponentClass> {
     tag_seed_rng: SmallRng,
     phantom: PhantomData<C>
 }
+
+impl<C: ComponentClass> RefUnwindSafe for ComponentClassToken<C> { }
+unsafe impl<C: ComponentClass> Send for ComponentClassToken<C> { }
+unsafe impl<C: ComponentClass> Sync for ComponentClassToken<C> { }
+impl<C: ComponentClass> Unpin for ComponentClassToken<C> { }
+impl<C: ComponentClass> UnwindSafe for ComponentClassToken<C> { }
 
 impl<C: ComponentClass> ComponentClassToken<C> {
     /// Creates components shared data storage on first call for every component type `C`.
