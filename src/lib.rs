@@ -64,7 +64,7 @@ impl Default for ComponentClassLock {
 
 /// An utility trait describing a specific component type.
 ///
-/// Normaly for a non-generic component type
+/// Normally for a non-generic component type
 /// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
@@ -77,9 +77,9 @@ impl Default for ComponentClassLock {
 ///
 /// Correct implementation should return reference to the one and same
 /// `ComponentClassLock` instance from the [`lock`](ComponentClass::lock) function.
-/// Also it should be garanteed that no other `ComponentClass` implementation
+/// Also it should be guaranteed that no other `ComponentClass` implementation
 /// returns same `ComponentClassLock` instance.
-/// This requirements can be easaly satisfied with private static:
+/// This requirements can be easily satisfied with private static:
 ///
 /// ```rust
 /// use components_arena::{ComponentClass, ComponentClassLock};
@@ -97,7 +97,7 @@ pub trait ComponentClass {
     fn lock() -> &'static ComponentClassLock;
 }
 
-/// An implementor of the `Component` trait is a type, whose values can be placed into
+/// An implementer of the `Component` trait is a type, whose values can be placed into
 /// [`Arena`](Arena) container.
 ///
 /// Normally, the implementation of this trait is derived
@@ -129,10 +129,20 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 impl<C: Component> UnwindSafe for Id<C> { }
 
 impl<C: Component> Id<C> {
+    /// Forms an `Id` from the [`into_raw_parts`](Id::into_raw_parts) function result.
+    ///
+    /// # Safety
+    ///
+    /// Safe iff the provided arguments were obtained by calling the `into_raw_parts` function
+    /// on an `Id` of the same type.
     pub unsafe fn from_raw_parts(index: usize, guard: NonZeroUsize) -> Self {
         Id { index, guard, phantom: PhantomData }
     }
 
+    /// Transforms `Id` to primitive-typed parts, which can be
+    /// easily passed through FFI.
+    ///
+    /// Use [`from_raw_parts`](Id::from_raw_parts) to put the `Id` back together.
     pub fn into_raw_parts(self) -> (usize, NonZeroUsize) {
         (self.index, self.guard)
     }
