@@ -116,7 +116,7 @@ pub trait Component {
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
 pub struct Id<C: Component> {
     index: usize,
-    tag: NonZeroUsize,
+    guard: NonZeroUsize,
     phantom: PhantomData<C>
 }
 
@@ -128,10 +128,20 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
+impl<C: Component> Id<C> {
+    pub unsafe fn from_raw_parts(index: usize, guard: NonZeroUsize) -> Self {
+        Id { index, guard, phantom: PhantomData }
+    }
+
+    pub fn into_raw_parts(self) -> (usize, NonZeroUsize) {
+        (self.index, self.guard)
+    }
+}
+
 /// Unordered container with random access.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
-    tag_rng: SmallRng,
+    guard_rng: SmallRng,
     items: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
     vacancy: Option<usize>,
 }
@@ -165,7 +175,7 @@ pub struct Arena<C: Component> {
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
 pub struct ComponentClassToken<C: ComponentClass> {
-    tag_seed_rng: SmallRng,
+    guard_seed_rng: SmallRng,
     phantom: PhantomData<C>
 }
 
@@ -185,7 +195,7 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken { tag_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomData })
+            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomData })
         }
     }
 }
@@ -194,7 +204,7 @@ impl<C: Component> Arena<C> {
     /// Creates an arena instance.
     pub fn new(class: &mut ComponentClassToken<C::Class>) -> Self {
         Arena {
-            tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
+            guard_rng: SmallRng::seed_from_u64(class.guard_seed_rng.next_u64()),
             items: Vec::new(),
             vacancy: None
         }
@@ -203,7 +213,7 @@ impl<C: Component> Arena<C> {
     /// Creates an arena instance with the specified initial capacity.
     pub fn with_capacity(capacity: usize, class: &mut ComponentClassToken<C::Class>) -> Self {
         Arena {
-            tag_rng: SmallRng::seed_from_u64(class.tag_seed_rng.next_u64()),
+            guard_rng: SmallRng::seed_from_u64(class.guard_seed_rng.next_u64()),
             items: Vec::with_capacity(capacity),
             vacancy: None
         }
@@ -341,21 +351,21 @@ impl<C: Component> Arena<C> {
     /// }
     /// ```
     pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
-        let mut tag = 0usize.to_le_bytes();
-        self.tag_rng.fill_bytes(&mut tag[..]);
-        let tag = NonZeroUsize::new(usize::from_le_bytes(tag)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(43) });
+        let mut guard = 0usize.to_le_bytes();
+        self.guard_rng.fill_bytes(&mut guard[..]);
+        let guard = NonZeroUsize::new(usize::from_le_bytes(guard)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(42) });
         if let Some(index) = self.vacancy {
-            let id = Id { index, tag, phantom: PhantomData };
+            let id = Id { index, guard, phantom: PhantomData };
             let (component, result) = component(id);
-            let item = (tag, component);
+            let item = (guard, component);
             self.vacancy = replace(&mut self.items[index], Right(item)).left()
                 .unwrap_or_else(|| unsafe { unreachable_unchecked() });
             result
         } else {
             let index = self.items.len();
-            let id = Id { index, tag, phantom: PhantomData };
+            let id = Id { index, guard, phantom: PhantomData };
             let (component, result) = component(id);
-            let item = (tag, component);
+            let item = (guard, component);
             self.items.push(Right(item));
             result
         }
@@ -372,12 +382,12 @@ impl<C: Component> Arena<C> {
                 self.items[id.index] = Left(vacancy);
                 panic!("invalid id");
             },
-            Right((tag, component)) => {
-                if tag == id.tag {
+            Right((guard, component)) => {
+                if guard == id.guard {
                     self.vacancy = Some(id.index);
                     component
                 } else {
-                    self.items[id.index] = Right((tag, component));
+                    self.items[id.index] = Right((guard, component));
                     panic!("invalid id");
                 }
             }
@@ -389,16 +399,16 @@ impl<C: Component> Index<Id<C>> for Arena<C> {
     type Output = C;
 
     fn index(&self, id: Id<C>) -> &C {
-        let &(tag, ref component) = self.items[id.index].as_ref().right().expect("invalid id");
-        if tag != id.tag { panic!("invalid id"); }
+        let &(guard, ref component) = self.items[id.index].as_ref().right().expect("invalid id");
+        if guard != id.guard { panic!("invalid id"); }
         component
     }
 }
 
 impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     fn index_mut(&mut self, id: Id<C>) -> &mut C {
-        let &mut (tag, ref mut component) = self.items[id.index].as_mut().right().expect("invalid id");
-        if tag != id.tag { panic!("invalid id"); }
+        let &mut (guard, ref mut component) = self.items[id.index].as_mut().right().expect("invalid id");
+        if guard != id.guard { panic!("invalid id"); }
         component
     }
 }
