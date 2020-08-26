@@ -45,9 +45,9 @@ use std::sync::Mutex;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
 
-/// The return type of the `ComponentClass::lock` function.
+/// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
-/// The `ComponentClass::lock` function
+/// The [`ComponentClass::lock`](ComponentClass::lock) function
 /// is essential for components arena internal mechanic.
 pub struct ComponentClassLock(AtomicBool);
 
@@ -98,7 +98,7 @@ pub trait ComponentClass {
 }
 
 /// An implementor of the `Component` trait is a type, whose values can be placed into
-/// `Arena` container.
+/// [`Arena`](Arena) container.
 pub trait Component {
     /// Component class.
     ///
@@ -107,7 +107,7 @@ pub trait Component {
     type Class: ComponentClass;
 }
 
-/// `Arena` item handle.
+/// [`Arena`](Arena) item handle.
 #[derive(Derivative)]
 #[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
 #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
@@ -133,7 +133,7 @@ pub struct Arena<C: Component> {
     vacancy: Option<usize>,
 }
 
-/// Component class static shared data.
+/// [Component class](ComponentClass) static shared data.
 ///
 /// In the no-`no_std` environment it can be stored inside static `ComponentClassMutex`:
 ///
@@ -264,7 +264,7 @@ impl<C: Component> Arena<C> {
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
-    /// Prefer `reserve` if future insertions are expected.
+    /// Prefer [`reserve`](Arena::reserve) if future insertions are expected.
     ///
     /// # Panics
     ///
@@ -303,7 +303,7 @@ impl<C: Component> Arena<C> {
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
-    /// Prefer `try_reserve` if future insertions are expected.
+    /// Prefer [`try_reserve`](Arena::try_reserve) if future insertions are expected.
     ///
     /// # Errors
     ///
@@ -399,12 +399,15 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     }
 }
 
-/// Helps to store `ComponentClassToken` in a static.
+/// Helps to store [`ComponentClassToken`](ComponentClassToken) in a static.
 #[cfg(all(feature="std", feature="nightly"))]
 pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
 
 #[cfg(all(feature="std", feature="nightly"))]
 impl<C: ComponentClass> ComponentClassMutex<C> {
+    /// Creates new `ComponentClassMutex` instance.
+    ///
+    /// The function is `const`, and can be used for static initialization.
     pub const fn new() -> Self {
         ComponentClassMutex(sync::Lazy::new(|| Mutex::new(
             ComponentClassToken::new().expect("component class token already crated")
@@ -419,7 +422,7 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
 
-/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving `Component` trait.
+/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving [`Component`](trait@Component) trait.
 ///
 /// # Examples
 ///
