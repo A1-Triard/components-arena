@@ -531,14 +531,14 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 #[macro_export]
 macro_rules! Component {
     (()
-        $(pub $((crate))?)? enum $name:ident
+        $(pub $(($($vis:tt)+))?)? enum $name:ident
         $($tail:tt)+ ) => {
         Component! {
             @impl $name
         }
     };
     (()
-        $(pub $((crate))?)? struct $name:ident
+        $(pub $(($($vis:tt)+))?)? struct $name:ident
         $($tail:tt)+ ) => {
         Component! {
             @impl $name
@@ -563,19 +563,19 @@ macro_rules! Component {
         }
     };
     ((class=$class:ident)
-        pub(crate) enum $name:ident
+        pub($($vis:tt)+) enum $name:ident
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
-            @impl (pub(crate)) $name, $class,
+            @impl (pub($($vis)+)) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
-        pub(crate) struct $name:ident
+        pub($($vis:tt)+) struct $name:ident
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
         Component! {
-            @impl (pub(crate)) $name, $class,
+            @impl (pub($($vis)+)) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
@@ -609,8 +609,8 @@ macro_rules! Component {
             type Class = Self;
         }
     };
-    (@impl ($($p:tt $($c:tt)?)?) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
-        $($p $($c)?)? enum $class { }
+    (@impl ($($vis:tt)*) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
+        $($vis)* enum $class { }
         impl $crate::ComponentClass for $class {
             fn lock() -> &'static $crate::ComponentClassLock {
                 static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
