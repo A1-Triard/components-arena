@@ -94,7 +94,7 @@ impl Default for ComponentClassLock {
 /// ```
 pub trait ComponentClass {
     /// Essential for components arena internal mechanic.
-    fn lock() -> &'static ComponentClassLock;
+    fn lock() -> &'static ComponentClassLock where Self: Sized;
 }
 
 /// An implementer of the `Component` trait is a type, whose values can be placed into
@@ -135,8 +135,8 @@ impl<C: Component> Id<C> {
     ///
     /// Safe iff the provided arguments were obtained by calling the `into_raw_parts` function
     /// on an `Id` of the same type.
-    pub unsafe fn from_raw_parts(index: usize, guard: NonZeroUsize) -> Self {
-        Id { index, guard, phantom: PhantomData }
+    pub unsafe fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self {
+        Id { raw_parts.0, raw_parts.1, phantom: PhantomData }
     }
 
     /// Transforms `Id` to primitive-typed parts, which can be
