@@ -136,7 +136,7 @@ impl<C: Component> Id<C> {
     /// Safe iff the provided arguments were obtained by calling the `into_raw_parts` function
     /// on an `Id` of the same type.
     pub unsafe fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self {
-        Id { raw_parts.0, raw_parts.1, phantom: PhantomData }
+        Id { index: raw_parts.0, guard: raw_parts.1, phantom: PhantomData }
     }
 
     /// Transforms `Id` to primitive-typed parts, which can be
