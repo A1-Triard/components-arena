@@ -26,6 +26,7 @@ extern crate quickcheck_macros;
 #[cfg(feature="nightly")]
 use std::collections::TryReserveError;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::hint::unreachable_unchecked;
 use std::marker::PhantomData;
 use std::mem::replace;
@@ -128,7 +129,7 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
-pub trait ComponentId {
+pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
     /// Forms an id from the [`into_raw_parts`](ComponentId::into_raw_parts) function result.
     ///
     fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self;
