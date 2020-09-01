@@ -128,22 +128,23 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
-impl<C: Component> Id<C> {
-    /// Forms an `Id` from the [`into_raw_parts`](Id::into_raw_parts) function result.
+pub trait ComponentId {
+    /// Forms an id from the [`into_raw_parts`](ComponentId::into_raw_parts) function result.
     ///
-    /// # Safety
+    fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self;
+
+    /// Transforms the id to primitive-typed parts, which can be easily passed through FFI.
     ///
-    /// Safe iff the provided arguments were obtained by calling the `into_raw_parts` function
-    /// on an `Id` of the same type.
-    pub unsafe fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self {
+    /// Use [`from_raw_parts`](ComponentId::from_raw_parts) to put the the id back together.
+    fn into_raw_parts(self) -> (usize, NonZeroUsize);
+}
+
+impl<C: Component> ComponentId for Id<C> {
+    fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self {
         Id { index: raw_parts.0, guard: raw_parts.1, phantom: PhantomData }
     }
 
-    /// Transforms `Id` to primitive-typed parts, which can be
-    /// easily passed through FFI.
-    ///
-    /// Use [`from_raw_parts`](Id::from_raw_parts) to put the `Id` back together.
-    pub fn into_raw_parts(self) -> (usize, NonZeroUsize) {
+    fn into_raw_parts(self) -> (usize, NonZeroUsize) {
         (self.index, self.guard)
     }
 }
