@@ -665,4 +665,13 @@ mod test {
         let id = arena.insert(|this| (Test { this, value }, this));
         arena[id].this == id && arena[id].value == value
     }
+
+    #[should_panic]
+    #[test]
+    fn foreign_id_cause_panic() {
+        let mut arena = Arena::new(&mut TEST.lock().unwrap());
+        let id = arena.insert(|this| (Test { this, value: 7 }, this)).into_raw_parts();
+        let id = Id::from_raw_parts((id.0, unsafe { NonZeroUsize::new_unchecked(17) }));
+        let _ = &arena[id];
+    }
 }
