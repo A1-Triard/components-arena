@@ -129,6 +129,7 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
+/// An implementer of the `ComponentId` trait is a type behaves as [`Id`](Id).
 pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
     /// Forms an id from the [`into_raw_parts`](ComponentId::into_raw_parts) function result.
     ///
@@ -548,7 +549,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl () $name, $class,
             [ $( $lt ),+ ],
@@ -557,7 +558,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl () $name, $class,
             [ $( $lt ),+ ],
@@ -566,7 +567,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         pub($($vis:tt)+) enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl (pub($($vis)+)) $name, $class,
             [ $( $lt ),+ ],
@@ -575,7 +576,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         pub($($vis:tt)+) struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl (pub($($vis)+)) $name, $class,
             [ $( $lt ),+ ],
@@ -584,7 +585,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         pub enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl (pub) $name, $class,
             [ $( $lt ),+ ],
@@ -593,7 +594,7 @@ macro_rules! Component {
     };
     ((class=$class:ident)
         pub struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ > $($tail:tt)+ ) => {
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
             @impl (pub) $name, $class,
             [ $( $lt ),+ ],
