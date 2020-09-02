@@ -628,6 +628,7 @@ macro_rules! Component {
 
 #[cfg(test)]
 mod test {
+    use std::sync::atomic::{Ordering, AtomicI8};
     use crate::*;
 
     macro_attr! {
@@ -645,6 +646,14 @@ mod test {
         struct Test {
             this: Id<Test>,
             value: i8
+        }
+    }
+
+    static TEST_DROP: AtomicI8 = AtomicI8::new(-1);
+
+    impl Drop for Test {
+        fn drop(&mut self) {
+            TEST_DROP.store(self.value, Ordering::SeqCst);
         }
     }
 
@@ -675,5 +684,15 @@ mod test {
         let id = arena.insert(|this| (Test { this, value: 7 }, this)).into_raw_parts();
         let id = Id::from_raw_parts((id.0, unsafe { NonZeroUsize::new_unchecked(17) }));
         let _ = &arena[id];
+    }
+
+    #[test]
+    fn drop_components() {
+        {
+            let mut arena = Arena::new(&mut TEST.lock().unwrap());
+            arena.insert(|this| (Test { this, value: 7 }, this)).into_raw_parts();
+            TEST_DROP.store(-1, Ordering::SeqCst);
+        }
+        assert_eq!(TEST_DROP.load(Ordering::SeqCst), 7);
     }
 }
