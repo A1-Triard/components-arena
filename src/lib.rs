@@ -534,69 +534,33 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 #[macro_export]
 macro_rules! Component {
     (()
-        $(pub $(($($vis:tt)+))?)? enum $name:ident
+        $v:vis enum $name:ident
         $($tail:tt)+ ) => {
         Component! {
             @impl $name
         }
     };
     (()
-        $(pub $(($($vis:tt)+))?)? struct $name:ident
+        $v:vis struct $name:ident
         $($tail:tt)+ ) => {
         Component! {
             @impl $name
         }
     };
     ((class=$class:ident)
-        enum $name:ident
+        $v:vis enum $name:ident
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
-            @impl () $name, $class,
+            @impl ($v) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
     ((class=$class:ident)
-        struct $name:ident
+        $v:vis struct $name:ident
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
         Component! {
-            @impl () $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
-        }
-    };
-    ((class=$class:ident)
-        pub($($vis:tt)+) enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
-        Component! {
-            @impl (pub($($vis)+)) $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
-        }
-    };
-    ((class=$class:ident)
-        pub($($vis:tt)+) struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
-        Component! {
-            @impl (pub($($vis)+)) $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
-        }
-    };
-    ((class=$class:ident)
-        pub enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
-        Component! {
-            @impl (pub) $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
-        }
-    };
-    ((class=$class:ident)
-        pub struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
-        Component! {
-            @impl (pub) $name, $class,
+            @impl ($v) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
@@ -612,8 +576,8 @@ macro_rules! Component {
             type Class = Self;
         }
     };
-    (@impl ($($vis:tt)*) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
-        $($vis)* enum $class { }
+    (@impl ($v:vis) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
+        $v enum $class { }
         impl $crate::ComponentClass for $class {
             fn lock() -> &'static $crate::ComponentClassLock {
                 static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
