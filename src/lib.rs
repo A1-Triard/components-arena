@@ -14,7 +14,7 @@ pub(crate) mod std {
 }
 
 #[macro_use]
-extern crate derivative;
+extern crate educe;
 
 #[cfg(test)]
 #[macro_use]
@@ -112,9 +112,9 @@ pub trait Component {
 }
 
 /// [`Arena`](Arena) item handle.
-#[derive(Derivative)]
-#[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
-#[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
+#[derive(Educe)]
+#[educe(Debug, Copy, Clone, Eq, PartialEq)]
+#[educe(Hash, Ord, PartialOrd)]
 pub struct Id<C: Component> {
     index: usize,
     guard: NonZeroUsize,

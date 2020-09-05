@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 #[macro_use]
-extern crate derivative;
+extern crate educe;
 #[macro_use]
 extern crate macro_attr;
 #[macro_use]
@@ -40,9 +40,9 @@ mod widget_tree {
         pub fn root(&self) -> Widget<T> { Widget(self.root) }
     }
 
-    #[derive(Derivative)]
-    #[derivative(Debug(bound=""), Copy(bound=""), Clone(bound=""), Eq(bound=""), PartialEq(bound=""))]
-    #[derivative(Hash(bound=""), Ord(bound=""), PartialOrd(bound=""))]
+    #[derive(Educe)]
+    #[educe(Debug, Copy, Clone, Eq, PartialEq)]
+    #[educe(Hash, Ord, PartialOrd)]
     pub struct Widget<T>(Id<WidgetNode<T>>);
 
     impl<T> Widget<T> {
