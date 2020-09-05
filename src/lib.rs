@@ -533,39 +533,49 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// ```
 #[macro_export]
 macro_rules! Component {
-    (()
-        $v:vis enum $name:ident
-        $($tail:tt)+ ) => {
+    (
+        ()
+        $vis:vis enum $name:ident $($body:tt)+
+    ) => {
         Component! {
             @impl $name
         }
     };
-    (()
-        $v:vis struct $name:ident
-        $($tail:tt)+ ) => {
+    (
+        ()
+        $vis:vis struct $name:ident $($body:tt)+
+    ) => {
         Component! {
             @impl $name
         }
     };
-    ((class=$class:ident)
-        $v:vis enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
+    (
+        (class=$class:ident)
+        $vis:vis enum $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
+        $($body:tt)+
+    ) => {
         Component! {
-            @impl ($v) $name, $class,
+            @impl ($vis) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
-    ((class=$class:ident)
-        $v:vis struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?> $($tail:tt)+ ) => {
+    (
+        (class=$class:ident)
+        $vis:vis struct $name:ident
+        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
+        $($body:tt)+
+    ) => {
         Component! {
-            @impl ($v) $name, $class,
+            @impl ($vis) $name, $class,
             [ $( $lt ),+ ],
             [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
         }
     };
-    (@impl $name:ident) => {
+    (
+        @impl $name:ident
+    ) => {
         impl $crate::ComponentClass for $name {
             fn lock() -> &'static $crate::ComponentClassLock {
                 static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
@@ -576,8 +586,11 @@ macro_rules! Component {
             type Class = Self;
         }
     };
-    (@impl ($v:vis) $name:ident, $class:ident, [ $($g:tt)+ ], [ $($r:tt)+ ]) => {
-        $v enum $class { }
+    (
+        @impl ($vis:vis) $name:ident, $class:ident,
+        [ $($g:tt)+ ], [ $($r:tt)+ ]
+    ) => {
+        $vis enum $class { }
         impl $crate::ComponentClass for $class {
             fn lock() -> &'static $crate::ComponentClassLock {
                 static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
