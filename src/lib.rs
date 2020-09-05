@@ -46,6 +46,11 @@ use std::sync::Mutex;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
 
+#[doc(hidden)]
+pub use std::num::NonZeroUsize as std_num_NonZeroUsize;
+#[doc(hidden)]
+pub use std::marker::PhantomData as std_marker_PhantomData;
+
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
 /// The [`ComponentClass::lock`](ComponentClass::lock) function
@@ -113,8 +118,7 @@ pub trait Component {
 
 /// [`Arena`](Arena) item handle.
 #[derive(Educe)]
-#[educe(Debug, Copy, Clone, Eq, PartialEq)]
-#[educe(Hash, Ord, PartialOrd)]
+#[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Id<C: Component> {
     index: usize,
     guard: NonZeroUsize,
@@ -603,6 +607,51 @@ macro_rules! Component {
     };
 }
 
+#[macro_export]
+macro_rules! ComponentId {
+    (
+        ()
+        $vis:vis struct $name:ident
+        $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
+        ($id:ty $(, $($phantom:ty),+ $(,)?)?);
+    ) => {
+        ComponentId! {
+            @impl ($vis) $name
+            [$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [$(< $( $lt ),+ >)?]
+            [] [$($($phantom),+)?]
+        }
+    };
+    (
+        @impl ($vis:vis) $name:ident [$($g:tt)*] [$($r:tt)*]
+        [$($p:tt)*]
+        [$phantom:ty $(, $($other_phantoms:tt)+)?]
+    ) => {
+        ComponentId! {
+            @impl ($vis) $name
+            [$($g)*] [$($r)*]
+            [
+                $($p)*
+                $crate::std_marker_PhantomData,
+            ]
+            [$($($other_phantoms)+)?]
+        }
+    };
+    (
+        @impl ($vis:vis) $name:ident [$($g:tt)*] [$($r:tt)*]
+        [$($p:tt)*] []
+    ) => {
+        impl $($g)* $crate::ComponentId for $name $($r)* {
+            fn from_raw_parts(raw_parts: (usize, $crate::std_num_NonZeroUsize)) -> Self {
+                $name($crate::Id::from_raw_parts(raw_parts), $($p)*)
+            }
+
+            fn into_raw_parts(self) -> (usize, $crate::std_num_NonZeroUsize) {
+                self.0.into_raw_parts()
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod test {
     use std::sync::atomic::{Ordering, AtomicI8};
@@ -671,5 +720,26 @@ mod test {
             TEST_DROP.store(-1, Ordering::SeqCst);
         }
         assert_eq!(TEST_DROP.load(Ordering::SeqCst), 7);
+    }
+
+    macro_attr! {
+        #[derive(ComponentId!)]
+        #[derive(Educe)]
+        #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        struct IdWrap1(Id<Test>);
+    }
+
+    macro_attr! {
+        #[derive(ComponentId!)]
+        #[derive(Educe)]
+        #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        struct IdWrap2<X>(Id<Test>, PhantomData<X>);
+    }
+
+    macro_attr! {
+        #[derive(ComponentId!)]
+        #[derive(Educe)]
+        #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        struct IdWrap3<X, Y: Copy>(Id<Test>, PhantomData<X>, PhantomData<Y>);
     }
 }
