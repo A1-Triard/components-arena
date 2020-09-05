@@ -88,9 +88,10 @@ impl Default for ComponentClassLock {
 /// This requirements can be easily satisfied with private static:
 ///
 /// ```rust
-/// use components_arena::{ComponentClass, ComponentClassLock};
-///
+/// # use components_arena::{ComponentClass, ComponentClassLock};
+/// #
 /// struct MyComponent { /* ... */ }
+///
 /// impl ComponentClass for MyComponent {
 ///     fn lock() -> &'static ComponentClassLock {
 ///         static LOCK: ComponentClassLock = ComponentClassLock::new();
@@ -169,12 +170,10 @@ pub struct Arena<C: Component> {
 /// [`ComponentClassMutex`](ComponentClassMutex):
 ///
 /// ```rust
-/// #[macro_use]
-/// extern crate macro_attr;
-/// #[macro_use]
-/// extern crate components_arena;
-/// use components_arena::{ComponentClassMutex, Arena};
-///
+/// # #[macro_use] extern crate macro_attr;
+/// # #[macro_use] extern crate components_arena;
+/// # use components_arena::{ComponentClassMutex, Arena};
+/// #
 /// macro_attr! {
 ///     #[derive(Component!)]
 ///     struct MyComponent { /* ... */ }
@@ -184,10 +183,10 @@ pub struct Arena<C: Component> {
 ///
 /// // ...
 ///
-/// fn main() {
+/// # fn main() {
 ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
 ///     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-/// }
+/// # }
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
@@ -248,22 +247,18 @@ impl<C: Component> Arena<C> {
     /// # Examples
     ///
     /// ```rust
-    /// #[macro_use]
-    /// extern crate macro_attr;
-    /// #[macro_use]
-    /// extern crate components_arena;
-    /// use components_arena::{ComponentClassMutex, Arena};
-    ///
-    /// macro_attr! {
-    ///     #[derive(Component!)]
-    ///     struct MyComponent { /* ... */ }
-    /// }
-    ///
-    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-    ///
-    /// // ...
-    ///
-    /// fn main() {
+    /// # #[macro_use] extern crate macro_attr;
+    /// # #[macro_use] extern crate components_arena;
+    /// # use components_arena::{ComponentClassMutex, Arena};
+    /// #
+    /// # macro_attr! {
+    /// #     #[derive(Component!)]
+    /// #     struct MyComponent { /* ... */ }
+    /// # }
+    /// #
+    /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+    /// #
+    /// # fn main() {
     ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
     ///     assert_eq!(arena.min_capacity(), 0);
     ///     let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
@@ -276,7 +271,7 @@ impl<C: Component> Arena<C> {
     ///     assert_eq!(arena.min_capacity(), 2);
     ///     let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     ///     assert_eq!(arena.min_capacity(), 3);
-    /// }
+    /// # }
     /// ```
     pub fn min_capacity(&self) -> usize { self.items.len() }
 
@@ -351,23 +346,21 @@ impl<C: Component> Arena<C> {
     /// # Examples
     ///
     /// ```rust
-    /// #[macro_use]
-    /// extern crate macro_attr;
-    /// #[macro_use]
-    /// extern crate components_arena;
-    /// use components_arena::{ComponentClassMutex, Arena};
-    ///
-    /// macro_attr! {
-    ///     #[derive(Component!)]
-    ///     struct MyComponent { /* ... */ }
-    /// }
-    ///
-    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-    ///
-    /// fn main() {
+    /// # #[macro_use] extern crate macro_attr;
+    /// # #[macro_use] extern crate components_arena;
+    /// # use components_arena::{ComponentClassMutex, Arena};
+    /// #
+    /// # macro_attr! {
+    /// #     #[derive(Component!)]
+    /// #     struct MyComponent { /* ... */ }
+    /// # }
+    /// #
+    /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+    /// #
+    /// # fn main() {
     ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
     ///     let new_component_id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// }
+    /// # }
     /// ```
     pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
         let mut guard = 0usize.to_le_bytes();
@@ -437,12 +430,10 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 /// # Examples
 ///
 /// ```rust
-/// #[macro_use]
-/// extern crate macro_attr;
-/// #[macro_use]
-/// extern crate components_arena;
-/// use components_arena::{ComponentClassMutex, Arena};
-///
+/// # #[macro_use] extern crate macro_attr;
+/// # #[macro_use] extern crate components_arena;
+/// # use components_arena::{ComponentClassMutex, Arena};
+/// #
 /// macro_attr! {
 ///     #[derive(Component!)]
 ///     struct MyComponent { /* ... */ }
@@ -452,10 +443,10 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 ///
 /// // ...
 ///
-/// fn main() {
+/// # fn main() {
 ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-///     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-/// }
+/// #     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+/// # }
 /// ```
 #[cfg(all(feature="std", feature="nightly"))]
 pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
@@ -485,13 +476,11 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// ## Non-generic component
 ///
-/// ```
-/// #[macro_use]
-/// extern crate macro_attr;
-/// #[macro_use]
-/// extern crate components_arena;
-/// use components_arena::{ComponentClassMutex, Arena};
-///
+/// ```rust
+/// # #[macro_use] extern crate macro_attr;
+/// # #[macro_use] extern crate components_arena;
+/// # use components_arena::{ComponentClassMutex, Arena};
+/// #
 /// macro_attr! {
 ///     #[derive(Component!)]
 ///     struct Item { /* ... */ }
@@ -501,21 +490,19 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// // ...
 ///
-/// fn main() {
+/// # fn main() {
 ///     let mut arena = Arena::new(&mut ITEM.lock().unwrap());
 ///     let id = arena.insert(|id| (Item { /* ... */ }, id));
-/// }
+/// # }
 /// ```
 ///
 /// ## Generic component
 ///
-/// ```
-/// #[macro_use]
-/// extern crate macro_attr;
-/// #[macro_use]
-/// extern crate components_arena;
-/// use components_arena::{ComponentClassMutex, Arena};
-///
+/// ```rust
+/// # #[macro_use] extern crate macro_attr;
+/// # #[macro_use] extern crate components_arena;
+/// # use components_arena::{ComponentClassMutex, Arena};
+/// #
 /// macro_attr! {
 ///     #[derive(Component!(class=ItemComponent))]
 ///     struct Item<T> {
@@ -527,13 +514,13 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 ///
 /// // ...
 ///
-/// fn main() {
+/// # fn main() {
 ///     let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
 ///     let _ = arena_u8.insert(|id| (Item { context: 7u8 }, id));
 ///
 ///     let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
 ///     let _ = arena_u32.insert(|id| (Item { context: 7u32 }, id));
-/// }
+/// # }
 /// ```
 #[macro_export]
 macro_rules! Component {
@@ -607,6 +594,32 @@ macro_rules! Component {
     };
 }
 
+/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving [`ComponentId`](trait@ComponentId) trait.
+///
+/// # Examples
+///
+/// ```rust
+/// # #[macro_use] extern crate macro_attr;
+/// # #[macro_use] extern crate components_arena;
+/// # #[macro_use] extern crate educe;
+/// use std::marker::PhantomData;
+/// use components_arena::{Id, ComponentId};
+///
+/// # macro_attr! {
+/// #    #[derive(Component!(class=ItemNodeComponent))]
+/// #    struct ItemNode<Tag> {
+/// #        /* ... */
+/// #        tag: Tag
+/// #    }
+/// # }
+/// #
+/// macro_attr! {
+///     #[derive(ComponentId!)]
+///     #[derive(Educe)]
+///     #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+///     pub struct Item<Tag, X>(Id<ItemNode<Tag>>, PhantomData<X>);
+/// }
+/// ```
 #[macro_export]
 macro_rules! ComponentId {
     (
