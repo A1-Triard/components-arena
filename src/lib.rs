@@ -38,8 +38,6 @@ use std::ops::Deref;
 use educe::Educe;
 
 #[doc(hidden)]
-pub use std::num::NonZeroUsize as std_num_NonZeroUsize;
-#[doc(hidden)]
 pub use std::marker::PhantomData as std_marker_PhantomData;
 
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
@@ -125,24 +123,27 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
+/// Non-generic, FFI-friendly [`ComponentId`](ComponentId) representaion.
+pub type RawId = (usize, NonZeroUsize);
+
 /// An implementer of the `ComponentId` trait is a type behaves as [`Id`](Id).
 pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
-    /// Forms an id from the [`into_raw_parts`](ComponentId::into_raw_parts) function result.
-    ///
-    fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self;
+    /// Forms an id from the [`into_raw`](ComponentId::into_raw) function result.
+    fn from_raw(raw: RawId) -> Self;
 
-    /// Transforms the id to primitive-typed parts, which can be easily passed through FFI.
+    /// Transforms the id to primitive-typed parts, which can be easily passed through FFI
+    /// and stored in non-generic context.
     ///
-    /// Use [`from_raw_parts`](ComponentId::from_raw_parts) to put the the id back together.
-    fn into_raw_parts(self) -> (usize, NonZeroUsize);
+    /// Use [`from_raw`](ComponentId::from_raw) to get the source id back.
+    fn into_raw(self) -> RawId;
 }
 
 impl<C: Component> ComponentId for Id<C> {
-    fn from_raw_parts(raw_parts: (usize, NonZeroUsize)) -> Self {
-        Id { index: raw_parts.0, guard: raw_parts.1, phantom: PhantomData }
+    fn from_raw(raw: RawId) -> Self {
+        Id { index: raw.0, guard: raw.1, phantom: PhantomData }
     }
 
-    fn into_raw_parts(self) -> (usize, NonZeroUsize) {
+    fn into_raw(self) -> RawId {
         (self.index, self.guard)
     }
 }
@@ -638,12 +639,12 @@ macro_rules! ComponentId {
         [$($p:tt)*] []
     ) => {
         impl $($g)* $crate::ComponentId for $name $($r)* {
-            fn from_raw_parts(raw_parts: (usize, $crate::std_num_NonZeroUsize)) -> Self {
-                $name($crate::Id::from_raw_parts(raw_parts), $($p)*)
+            fn from_raw(raw: $crate::RawId) -> Self {
+                $name($crate::Id::from_raw(raw), $($p)*)
             }
 
-            fn into_raw_parts(self) -> (usize, $crate::std_num_NonZeroUsize) {
-                self.0.into_raw_parts()
+            fn into_raw(self) -> $crate::RawId {
+                self.0.into_raw()
             }
         }
     };
@@ -707,8 +708,8 @@ mod test {
     #[test]
     fn foreign_id_cause_panic() {
         let mut arena = Arena::new(&mut TEST.lock().unwrap());
-        let id = arena.insert(|this| (Test { this, value: 7 }, this)).into_raw_parts();
-        let id = Id::from_raw_parts((id.0, unsafe { NonZeroUsize::new_unchecked(17) }));
+        let id = arena.insert(|this| (Test { this, value: 7 }, this)).into_raw();
+        let id = Id::from_raw((id.0, unsafe { NonZeroUsize::new_unchecked(17) }));
         let _ = &arena[id];
     }
 
@@ -716,7 +717,7 @@ mod test {
     fn drop_components() {
         {
             let mut arena = Arena::new(&mut TEST.lock().unwrap());
-            arena.insert(|this| (Test { this, value: 7 }, this)).into_raw_parts();
+            arena.insert(|this| (Test { this, value: 7 }, this)).into_raw();
             TEST_DROP.store(-1, Ordering::SeqCst);
         }
         assert_eq!(TEST_DROP.load(Ordering::SeqCst), 7);
