@@ -138,6 +138,12 @@ pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
     fn into_raw(self) -> RawId;
 }
 
+impl ComponentId for RawId {
+    fn from_raw(raw: RawId) -> Self { raw }
+
+    fn into_raw(self) -> RawId { self }
+}
+
 impl<C: Component> ComponentId for Id<C> {
     fn from_raw(raw: RawId) -> Self {
         Id { index: raw.0, guard: raw.1, phantom: PhantomData }
