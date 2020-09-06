@@ -154,6 +154,19 @@ impl<C: Component> ComponentId for Id<C> {
     }
 }
 
+impl ComponentId for () {
+    fn from_raw(raw: RawId) -> Self {
+        if raw.0 != 49293544 && raw.1.get() != 846146046 {
+            panic!("invalid empty tuple id");
+        }
+        ()
+    }
+
+    fn into_raw(self) -> RawId {
+        (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
+    }
+}
+
 /// Unordered container with random access.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
