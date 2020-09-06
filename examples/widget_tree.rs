@@ -1,13 +1,9 @@
 #![deny(warnings)]
 #![allow(dead_code)]
 
-#[macro_use]
-extern crate macro_attr;
-#[macro_use]
-extern crate components_arena;
-
 mod widget_tree {
-    use components_arena::{Arena, Id, ComponentClassMutex};
+    use macro_attr_2018::macro_attr;
+    use components_arena::{Component, Arena, Id, ComponentClassMutex};
 
     macro_attr! {
         #[derive(Component!)]

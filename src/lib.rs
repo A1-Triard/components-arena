@@ -13,16 +13,6 @@ pub(crate) mod std {
     pub use ::alloc::vec;
 }
 
-#[macro_use]
-extern crate educe;
-
-#[cfg(test)]
-#[macro_use]
-extern crate macro_attr;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-
 #[cfg(feature="nightly")]
 use std::collections::TryReserveError;
 use std::fmt::Debug;
@@ -45,6 +35,7 @@ use once_cell::sync::{self};
 use std::sync::Mutex;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
+use educe::Educe;
 
 #[doc(hidden)]
 pub use std::num::NonZeroUsize as std_num_NonZeroUsize;
@@ -170,9 +161,8 @@ pub struct Arena<C: Component> {
 /// [`ComponentClassMutex`](ComponentClassMutex):
 ///
 /// ```rust
-/// # #[macro_use] extern crate macro_attr;
-/// # #[macro_use] extern crate components_arena;
-/// # use components_arena::{ComponentClassMutex, Arena};
+/// # use macro_attr_2018::macro_attr;
+/// # use components_arena::{Component, ComponentClassMutex, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!)]
@@ -247,9 +237,8 @@ impl<C: Component> Arena<C> {
     /// # Examples
     ///
     /// ```rust
-    /// # #[macro_use] extern crate macro_attr;
-    /// # #[macro_use] extern crate components_arena;
-    /// # use components_arena::{ComponentClassMutex, Arena};
+    /// # use macro_attr_2018::macro_attr;
+    /// # use components_arena::{Component, ComponentClassMutex, Arena};
     /// #
     /// # macro_attr! {
     /// #     #[derive(Component!)]
@@ -346,9 +335,8 @@ impl<C: Component> Arena<C> {
     /// # Examples
     ///
     /// ```rust
-    /// # #[macro_use] extern crate macro_attr;
-    /// # #[macro_use] extern crate components_arena;
-    /// # use components_arena::{ComponentClassMutex, Arena};
+    /// # use macro_attr_2018::macro_attr;
+    /// # use components_arena::{Component, ComponentClassMutex, Arena};
     /// #
     /// # macro_attr! {
     /// #     #[derive(Component!)]
@@ -430,9 +418,8 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 /// # Examples
 ///
 /// ```rust
-/// # #[macro_use] extern crate macro_attr;
-/// # #[macro_use] extern crate components_arena;
-/// # use components_arena::{ComponentClassMutex, Arena};
+/// # use macro_attr_2018::macro_attr;
+/// # use components_arena::{Component, ComponentClassMutex, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!)]
@@ -470,16 +457,15 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
 
-/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving [`Component`](trait@Component) trait.
+/// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
 ///
 /// # Examples
 ///
 /// ## Non-generic component
 ///
 /// ```rust
-/// # #[macro_use] extern crate macro_attr;
-/// # #[macro_use] extern crate components_arena;
-/// # use components_arena::{ComponentClassMutex, Arena};
+/// # use macro_attr_2018::macro_attr;
+/// # use components_arena::{Component, ComponentClassMutex, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!)]
@@ -499,9 +485,8 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// ## Generic component
 ///
 /// ```rust
-/// # #[macro_use] extern crate macro_attr;
-/// # #[macro_use] extern crate components_arena;
-/// # use components_arena::{ComponentClassMutex, Arena};
+/// # use macro_attr_2018::macro_attr;
+/// # use components_arena::{Component, ComponentClassMutex, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!(class=ItemComponent))]
@@ -594,16 +579,15 @@ macro_rules! Component {
     };
 }
 
-/// [Macro attribute](https://crates.io/crates/macro-attr) for deriving [`ComponentId`](trait@ComponentId) trait.
+/// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`ComponentId`](trait@ComponentId) trait.
 ///
 /// # Examples
 ///
 /// ```rust
-/// # #[macro_use] extern crate macro_attr;
-/// # #[macro_use] extern crate components_arena;
-/// # #[macro_use] extern crate educe;
+/// # use macro_attr_2018::macro_attr;
+/// # use educe::Educe;
 /// use std::marker::PhantomData;
-/// use components_arena::{Id, ComponentId};
+/// use components_arena::{Component, Id, ComponentId};
 ///
 /// # macro_attr! {
 /// #    #[derive(Component!(class=ItemNodeComponent))]
@@ -667,6 +651,9 @@ macro_rules! ComponentId {
 
 #[cfg(test)]
 mod test {
+    use macro_attr_2018::macro_attr;
+    use quickcheck_macros::quickcheck;
+
     use std::sync::atomic::{Ordering, AtomicI8};
     use crate::*;
 
