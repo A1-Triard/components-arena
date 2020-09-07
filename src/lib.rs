@@ -159,7 +159,6 @@ impl ComponentId for () {
         if raw.0 != 49293544 && raw.1.get() != 846146046 {
             panic!("invalid empty tuple id");
         }
-        ()
     }
 
     fn into_raw(self) -> RawId {
@@ -248,6 +247,23 @@ impl<C: Component> Arena<C> {
     /// Returns the number of elements the arena can hold without reallocating.
     pub fn capacity(&self) -> usize { self.items.capacity() }
 
+    /// Returns the number of elements in the arena.
+    ///
+    /// This function has linear worst-case complexity.
+    pub fn len(&self) -> usize {
+        let mut vacancies = 0;
+        let mut vacancy = self.vacancy;
+        while let Some(i) = vacancy {
+            vacancies += 1;
+            vacancy = *self.items[i].as_ref().left().unwrap();
+        }
+        self.items.len() - vacancies
+    }
+
+    /// Returns `true` if the arena contains no elements.
+    ///
+    /// This function has linear worst-case complexity.
+    pub fn is_empty(&self) -> bool { self.items.iter().all(|x| x.is_left()) }
 
     /// Returns the maximum number of elements ever in the arena.
     /// The arena capacity cannot be less than `min_capacity`.
