@@ -193,8 +193,8 @@ pub struct Arena<C: Component> {
 /// // ...
 ///
 /// # fn main() {
-///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-///     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+/// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+/// let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
 /// # }
 /// ```
 ///
@@ -284,18 +284,18 @@ impl<C: Component> Arena<C> {
     /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
     /// #
     /// # fn main() {
-    ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-    ///     assert_eq!(arena.min_capacity(), 0);
-    ///     let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.min_capacity(), 1);
-    ///     let id_2 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.min_capacity(), 2);
-    ///     arena.remove(id_1);
-    ///     assert_eq!(arena.min_capacity(), 2);
-    ///     let id_3 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.min_capacity(), 2);
-    ///     let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    ///     assert_eq!(arena.min_capacity(), 3);
+    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    /// assert_eq!(arena.min_capacity(), 0);
+    /// let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// assert_eq!(arena.min_capacity(), 1);
+    /// let id_2 = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// assert_eq!(arena.min_capacity(), 2);
+    /// arena.remove(id_1);
+    /// assert_eq!(arena.min_capacity(), 2);
+    /// let id_3 = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// assert_eq!(arena.min_capacity(), 2);
+    /// let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// assert_eq!(arena.min_capacity(), 3);
     /// # }
     /// ```
     pub fn min_capacity(&self) -> usize { self.items.len() }
@@ -382,8 +382,8 @@ impl<C: Component> Arena<C> {
     /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
     /// #
     /// # fn main() {
-    ///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-    ///     let new_component_id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    /// let new_component_id = arena.insert(|id| (MyComponent { /* ... */ }, id));
     /// # }
     /// ```
     pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
@@ -467,8 +467,8 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 /// // ...
 ///
 /// # fn main() {
-///     let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-/// #     let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+/// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+/// # let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
 /// # }
 /// ```
 #[cfg(all(feature="std", feature="nightly"))]
@@ -513,8 +513,8 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// // ...
 ///
 /// # fn main() {
-///     let mut arena = Arena::new(&mut ITEM.lock().unwrap());
-///     let id = arena.insert(|id| (Item { /* ... */ }, id));
+/// let mut arena = Arena::new(&mut ITEM.lock().unwrap());
+/// let id = arena.insert(|id| (Item { /* ... */ }, id));
 /// # }
 /// ```
 ///
@@ -536,11 +536,11 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 /// // ...
 ///
 /// # fn main() {
-///     let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u8.insert(|id| (Item { context: 7u8 }, id));
+/// let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
+/// let _ = arena_u8.insert(|id| (Item { context: 7u8 }, id));
 ///
-///     let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
-///     let _ = arena_u32.insert(|id| (Item { context: 7u32 }, id));
+/// let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
+/// let _ = arena_u32.insert(|id| (Item { context: 7u32 }, id));
 /// # }
 /// ```
 #[macro_export]
