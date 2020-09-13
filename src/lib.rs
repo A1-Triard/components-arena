@@ -160,9 +160,22 @@ impl ComponentId for () {
             panic!("invalid empty tuple id");
         }
     }
-
+ 
     fn into_raw(self) -> RawId {
         (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
+    }
+}
+
+impl ComponentId for usize {
+    fn from_raw(raw: RawId) -> Self {
+        if raw.1.get() != 434908713 {
+            panic!("invalid integer id");
+        }
+        raw.0
+    }
+
+    fn into_raw(self) -> RawId {
+        (self, unsafe { NonZeroUsize::new_unchecked(434908713) })
     }
 }
 
