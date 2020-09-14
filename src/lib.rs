@@ -562,16 +562,16 @@ macro_rules! Component {
         ()
         $vis:vis enum $name:ident $($body:tt)+
     ) => {
-        Component! {
-            @impl $name
+        $crate::Component! {
+            @impl [$name]
         }
     };
     (
         ()
         $vis:vis struct $name:ident $($body:tt)+
     ) => {
-        Component! {
-            @impl $name
+        $crate::Component! {
+            @impl [$name]
         }
     };
     (
@@ -580,10 +580,10 @@ macro_rules! Component {
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
         $($body:tt)+
     ) => {
-        Component! {
-            @impl ($vis) $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
+        $crate::Component! {
+            @impl <> [$vis] [$name] [$class]
+            [ < $( $lt ),+ > ]
+            [ < $( $lt $( : $clt $(+ $dlt )* )? ),+ > ]
         }
     };
     (
@@ -592,14 +592,14 @@ macro_rules! Component {
         < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
         $($body:tt)+
     ) => {
-        Component! {
-            @impl ($vis) $name, $class,
-            [ $( $lt ),+ ],
-            [ $( $lt $( : $clt $(+ $dlt )* )? ),+ ]
+        $crate::Component! {
+            @impl <> [$vis] [$name] [$class]
+            [ < $( $lt ),+ > ]
+            [ < $( $lt $( : $clt $(+ $dlt )* )? ),+ > ]
         }
     };
     (
-        @impl $name:ident
+        @impl [$name:ident]
     ) => {
         impl $crate::ComponentClass for $name {
             fn lock() -> &'static $crate::ComponentClassLock {
@@ -612,8 +612,7 @@ macro_rules! Component {
         }
     };
     (
-        @impl ($vis:vis) $name:ident, $class:ident,
-        [ $($g:tt)+ ], [ $($r:tt)+ ]
+        @impl <> [$vis:vis] [$name:ident] [$class:ident] [ $($g:tt)+ ] [ $($r:tt)+ ]
     ) => {
         $vis enum $class { }
         impl $crate::ComponentClass for $class {
@@ -622,7 +621,7 @@ macro_rules! Component {
                 &LOCK
             }
         }
-        impl < $($g)+ > $crate::Component for $name < $($r)+ > {
+        impl $($g)+ $crate::Component for $name $($r)+ {
             type Class = $class;
         }
     };
@@ -661,38 +660,40 @@ macro_rules! ComponentId {
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
         ($id:ty $(, $($phantom:ty),+ $(,)?)?);
     ) => {
-        ComponentId! {
-            @impl ($vis) $name
-            [$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [$(< $( $lt ),+ >)?]
-            [] [$($($phantom),+)?]
+        $crate::ComponentId! {
+            @impl [$vis] [$name]
+            [$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?]
+            [$(< $( $lt ),+ >)?]
+            []
+            [$($($phantom),+)?]
         }
     };
     (
-        @impl ($vis:vis) $name:ident [$($g:tt)*] [$($r:tt)*]
-        [$($p:tt)*]
+        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($phantom_args:tt)*]
         [$phantom:ty $(, $($other_phantoms:tt)+)?]
     ) => {
-        ComponentId! {
-            @impl ($vis) $name
-            [$($g)*] [$($r)*]
+        $crate::ComponentId! {
+            @impl [$vis] [$name] [$($g)*] [$($r)*]
             [
-                $($p)*
+                $($phantom_args)*
                 $crate::std_marker_PhantomData,
             ]
             [$($($other_phantoms)+)?]
         }
     };
     (
-        @impl ($vis:vis) $name:ident [$($g:tt)*] [$($r:tt)*]
-        [$($p:tt)*] []
+        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($phantom_args:tt)*]
+        []
     ) => {
         impl $($g)* $crate::ComponentId for $name $($r)* {
             fn from_raw(raw: $crate::RawId) -> Self {
-                $name($crate::Id::from_raw(raw), $($p)*)
+                $name($crate::Id::from_raw(raw), $($phantom_args)*)
             }
 
             fn into_raw(self) -> $crate::RawId {
-                self.0.into_raw()
+                $crate::Id::into_raw(self.0)
             }
         }
     };
