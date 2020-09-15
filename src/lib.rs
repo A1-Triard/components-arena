@@ -4,28 +4,24 @@
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 
 #![cfg_attr(not(feature="std"), no_std)]
-#[cfg(not(feature="std"))]
+
+#[cfg(feature="std")]
+extern crate core;
 extern crate alloc;
-#[cfg(not(feature="std"))]
-pub(crate) mod std {
-    pub use core::*;
-    pub use ::alloc::collections;
-    pub use ::alloc::vec;
-}
 
 #[cfg(feature="nightly")]
-use std::collections::TryReserveError;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::hint::unreachable_unchecked;
-use std::marker::PhantomData;
-use std::mem::replace;
-use std::num::{NonZeroUsize};
-use std::ops::{Index, IndexMut};
+use alloc::collections::TryReserveError;
+use core::fmt::Debug;
+use core::hash::Hash;
+use core::hint::unreachable_unchecked;
+use core::marker::PhantomData;
+use core::mem::replace;
+use core::num::{NonZeroUsize};
+use core::ops::{Index, IndexMut};
 #[cfg(feature="std")]
 use std::panic::{UnwindSafe, RefUnwindSafe};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::vec::Vec;
+use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::vec::Vec;
 use either::{Either, Left, Right};
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
@@ -38,7 +34,7 @@ use std::ops::Deref;
 use educe::Educe;
 
 #[doc(hidden)]
-pub use std::marker::PhantomData as std_marker_PhantomData;
+pub use core::marker::PhantomData as std_marker_PhantomData;
 
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
