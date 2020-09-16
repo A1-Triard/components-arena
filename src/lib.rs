@@ -5,6 +5,13 @@
 
 #![cfg_attr(not(feature="std"), no_std)]
 
+//! **Crate features**
+//!
+//! * `"std"`
+//! Enabled by default. Disable to make the library `#![no_std]`.
+//! * `"nightly"`
+//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
+
 #[cfg(feature="std")]
 extern crate core;
 extern crate alloc;
@@ -119,7 +126,7 @@ impl<C: Component> RefUnwindSafe for Id<C> { }
 #[cfg(feature="std")]
 impl<C: Component> UnwindSafe for Id<C> { }
 
-/// Non-generic, FFI-friendly [`ComponentId`](ComponentId) representaion.
+/// Non-generic, FFI-friendly [`ComponentId`](trait@ComponentId) representaion.
 pub type RawId = (usize, NonZeroUsize);
 
 /// An implementer of the `ComponentId` trait is a type behaves as [`Id`](Id).
