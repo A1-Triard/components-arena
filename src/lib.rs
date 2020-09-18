@@ -42,6 +42,10 @@ use educe::Educe;
 
 #[doc(hidden)]
 pub use core::marker::PhantomData as std_marker_PhantomData;
+#[doc(hidden)]
+pub use generics::parse as generics_parse;
+#[doc(hidden)]
+pub use core::compile_error as std_compile_error;
 
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
@@ -562,47 +566,54 @@ impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
 #[macro_export]
 macro_rules! Component {
     (
-        ()
-        $vis:vis enum $name:ident $($body:tt)+
-    ) => {
-        $crate::Component! {
-            @impl [$name]
-        }
-    };
-    (
-        ()
-        $vis:vis struct $name:ident $($body:tt)+
-    ) => {
-        $crate::Component! {
-            @impl [$name]
-        }
-    };
-    (
-        (class=$class:ident)
+        ($(class=$class:ident)?)
         $vis:vis enum $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
-        $($body:tt)+
+        $($body:tt)*
     ) => {
-        $crate::Component! {
-            @impl <> [$vis] [$name] [$class]
-            [ < $( $lt ),+ > ]
-            [ < $( $lt $( : $clt $(+ $dlt )* )? ),+ > ]
+        $crate::generics_parse! {
+            $crate::Component {
+                @impl [$vis] [$name] [$($class)?]
+            }
+            $($body)*
         }
     };
     (
-        (class=$class:ident)
+        ($(class=$class:ident)?)
         $vis:vis struct $name:ident
-        < $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>
-        $($body:tt)+
+        $($body:tt)*
     ) => {
-        $crate::Component! {
-            @impl <> [$vis] [$name] [$class]
-            [ < $( $lt ),+ > ]
-            [ < $( $lt $( : $clt $(+ $dlt )* )? ),+ > ]
+        $crate::generics_parse! {
+            $crate::Component {
+                @impl [$vis] [$name] [$($class)?]
+            }
+            $($body)*
         }
     };
     (
-        @impl [$name:ident]
+        @impl [$vis:vis] [$name:ident] [] [] [] [] $($body:tt)*
+    ) => {
+        $crate::Component! { @self [$name] }
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [$class:ident] [] [] [] $($body:tt)*
+    ) => {
+        $crate::Component! { @class [$vis] [$name] [$class] [] [] [] }
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("\
+            generic component requires separate non-generic component class; \
+            consider adding 'class' parameter: '#[derive(Component!(class=$class)'\
+        ");
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::Component! { @class [$vis] [$name] [$class] [$($g)+] [$($r)+] [$($w)*] }
+    };
+    (
+        @self [$name:ident]
     ) => {
         impl $crate::ComponentClass for $name {
             fn lock() -> &'static $crate::ComponentClassLock {
@@ -615,7 +626,7 @@ macro_rules! Component {
         }
     };
     (
-        @impl <> [$vis:vis] [$name:ident] [$class:ident] [ $($g:tt)+ ] [ $($r:tt)+ ]
+        @class [$vis:vis] [$name:ident] [$class:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $vis enum $class { }
         impl $crate::ComponentClass for $class {
@@ -624,7 +635,7 @@ macro_rules! Component {
                 &LOCK
             }
         }
-        impl $($g)+ $crate::Component for $name $($r)+ {
+        impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
         }
     };
@@ -659,25 +670,38 @@ macro_rules! Component {
 macro_rules! ComponentId {
     (
         ()
-        $vis:vis struct $name:ident
-        $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
+        $vis:vis struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::ComponentId {
+                @struct [$vis] [$name]
+            }
+            $($body)*
+        }
+    };
+    (
+        @struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         ($id:ty $(, $($phantom:ty),+ $(,)?)?);
     ) => {
         $crate::ComponentId! {
-            @impl [$vis] [$name]
-            [$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?]
-            [$(< $( $lt ),+ >)?]
+            @impl [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
             []
             [$($($phantom),+)?]
         }
     };
     (
-        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*]
+        @struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("'ComponentId' deriving is supported for non-empty tuple structs only");
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($phantom_args:tt)*]
         [$phantom:ty $(, $($other_phantoms:tt)+)?]
     ) => {
         $crate::ComponentId! {
-            @impl [$vis] [$name] [$($g)*] [$($r)*]
+            @impl [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($phantom_args)*
                 $crate::std_marker_PhantomData,
@@ -686,11 +710,11 @@ macro_rules! ComponentId {
         }
     };
     (
-        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*]
+        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($phantom_args:tt)*]
         []
     ) => {
-        impl $($g)* $crate::ComponentId for $name $($r)* {
+        impl $($g)* $crate::ComponentId for $name $($r)* $($w)* {
             fn from_raw(raw: $crate::RawId) -> Self {
                 $name($crate::Id::from_raw(raw), $($phantom_args)*)
             }
