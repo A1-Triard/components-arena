@@ -22,6 +22,7 @@ script:
 - cargo build --verbose --no-default-features --features="$FEATURES"
 - if [ "$FEATURES" = "std,nightly" ]; then cargo test --verbose --tests; fi
 - if [ "$FEATURES" = "std,nightly" ]; then cargo test --verbose --doc; fi
+- cargo doc --verbose --no-default-features --features="$FEATURES"
 - cargo test --verbose --example widget_tree_no_std --no-default-features --features="$FEATURES"
 - if [ "$FEATURES" = "std,nightly" ]; then cargo test --verbose --example widget_tree; fi
 - if [ "$FEATURES" = "std,nightly" ]; then cargo test --verbose --example widget_tree_generic; fi
