@@ -18,34 +18,33 @@ extern crate alloc;
 
 #[cfg(feature="nightly")]
 use alloc::collections::TryReserveError;
+use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::hash::Hash;
 use core::hint::unreachable_unchecked;
-use core::marker::PhantomData;
 use core::mem::replace;
 use core::num::{NonZeroUsize};
 use core::ops::{Index, IndexMut};
-#[cfg(feature="std")]
-use std::panic::{UnwindSafe, RefUnwindSafe};
 use core::sync::atomic::{AtomicBool, Ordering};
-use alloc::vec::Vec;
+use educe::Educe;
 use either::{Either, Left, Right};
+#[cfg(all(feature="std", feature="nightly"))]
+use once_cell::sync::{self};
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
 #[cfg(all(feature="std", feature="nightly"))]
-use once_cell::sync::{self};
+use std::ops::Deref;
+#[cfg(feature="std")]
+use std::panic::{UnwindSafe, RefUnwindSafe};
 #[cfg(all(feature="std", feature="nightly"))]
 use std::sync::Mutex;
-#[cfg(all(feature="std", feature="nightly"))]
-use std::ops::Deref;
-use educe::Educe;
 
 #[doc(hidden)]
-pub use core::marker::PhantomData as std_marker_PhantomData;
+pub use core::compile_error as std_compile_error;
+#[doc(hidden)]
+pub use core::default::Default as std_default_Default;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
-#[doc(hidden)]
-pub use core::compile_error as std_compile_error;
 
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
@@ -119,16 +118,8 @@ pub trait Component {
 pub struct Id<C: Component> {
     index: usize,
     guard: NonZeroUsize,
-    phantom: PhantomData<C>
+    phantom: PhantomType<C>
 }
-
-unsafe impl<C: Component> Send for Id<C> { }
-unsafe impl<C: Component> Sync for Id<C> { }
-impl<C: Component> Unpin for Id<C> { }
-#[cfg(feature="std")]
-impl<C: Component> RefUnwindSafe for Id<C> { }
-#[cfg(feature="std")]
-impl<C: Component> UnwindSafe for Id<C> { }
 
 /// Non-generic, FFI-friendly [`ComponentId`](trait@ComponentId) representaion.
 pub type RawId = (usize, NonZeroUsize);
@@ -153,7 +144,7 @@ impl ComponentId for RawId {
 
 impl<C: Component> ComponentId for Id<C> {
     fn from_raw(raw: RawId) -> Self {
-        Id { index: raw.0, guard: raw.1, phantom: PhantomData }
+        Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
     }
 
     fn into_raw(self) -> RawId {
@@ -221,16 +212,8 @@ pub struct Arena<C: Component> {
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
 pub struct ComponentClassToken<C: ComponentClass> {
     guard_seed_rng: SmallRng,
-    phantom: PhantomData<C>
+    phantom: PhantomType<C>
 }
-
-unsafe impl<C: ComponentClass> Send for ComponentClassToken<C> { }
-unsafe impl<C: ComponentClass> Sync for ComponentClassToken<C> { }
-impl<C: ComponentClass> Unpin for ComponentClassToken<C> { }
-#[cfg(feature="std")]
-impl<C: ComponentClass> RefUnwindSafe for ComponentClassToken<C> { }
-#[cfg(feature="std")]
-impl<C: ComponentClass> UnwindSafe for ComponentClassToken<C> { }
 
 impl<C: ComponentClass> ComponentClassToken<C> {
     /// Creates components shared data storage on first call for every component type `C`.
@@ -240,7 +223,7 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomData })
+            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomType::new() })
         }
     }
 }
@@ -411,7 +394,7 @@ impl<C: Component> Arena<C> {
         self.guard_rng.fill_bytes(&mut guard[..]);
         let guard = NonZeroUsize::new(usize::from_le_bytes(guard)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(42) });
         if let Some(index) = self.vacancy {
-            let id = Id { index, guard, phantom: PhantomData };
+            let id = Id { index, guard, phantom: PhantomType::new() };
             let (component, result) = component(id);
             let item = (guard, component);
             self.vacancy = replace(&mut self.items[index], Right(item)).left()
@@ -419,7 +402,7 @@ impl<C: Component> Arena<C> {
             result
         } else {
             let index = self.items.len();
-            let id = Id { index, guard, phantom: PhantomData };
+            let id = Id { index, guard, phantom: PhantomType::new() };
             let (component, result) = component(id);
             let item = (guard, component);
             self.items.push(Right(item));
@@ -646,10 +629,10 @@ macro_rules! Component {
 /// # Examples
 ///
 /// ```rust
-/// # use macro_attr_2018::macro_attr;
 /// # use educe::Educe;
-/// use std::marker::PhantomData;
+/// # use macro_attr_2018::macro_attr;
 /// use components_arena::{Component, Id, ComponentId};
+/// use phantom_type::PhantomType;
 ///
 /// # macro_attr! {
 /// #    #[derive(Component!(class=ItemNodeComponent))]
@@ -663,7 +646,7 @@ macro_rules! Component {
 ///     #[derive(ComponentId!)]
 ///     #[derive(Educe)]
 ///     #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-///     pub struct Item<Tag, X>(Id<ItemNode<Tag>>, PhantomData<X>);
+///     pub struct Item<Tag, X>(Id<ItemNode<Tag>>, PhantomType<X>);
 /// }
 /// ```
 #[macro_export]
@@ -704,7 +687,7 @@ macro_rules! ComponentId {
             @impl [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($phantom_args)*
-                $crate::std_marker_PhantomData,
+                $crate::std_default_Default::default(),
             ]
             [$($($other_phantoms)+)?]
         }
@@ -810,13 +793,13 @@ mod test {
         #[derive(ComponentId!)]
         #[derive(Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-        struct IdWrap2<X>(Id<Test>, PhantomData<X>);
+        struct IdWrap2<X>(Id<Test>, PhantomType<X>);
     }
 
     macro_attr! {
         #[derive(ComponentId!)]
         #[derive(Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-        struct IdWrap3<X, Y: Copy>(Id<Test>, PhantomData<X>, PhantomData<Y>);
+        struct IdWrap3<X, Y: Copy>(Id<Test>, PhantomType<X>, PhantomType<Y>);
     }
 }
