@@ -30,12 +30,11 @@ use educe::Educe;
 use either::{Either, Left, Right};
 #[cfg(all(feature="std", feature="nightly"))]
 use once_cell::sync::{self};
+use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
 #[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
-#[cfg(feature="std")]
-use std::panic::{UnwindSafe, RefUnwindSafe};
 #[cfg(all(feature="std", feature="nightly"))]
 use std::sync::Mutex;
 
@@ -212,7 +211,7 @@ pub struct Arena<C: Component> {
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
 pub struct ComponentClassToken<C: ComponentClass> {
     guard_seed_rng: SmallRng,
-    phantom: PhantomType<C>
+    _phantom: PhantomType<C>
 }
 
 impl<C: ComponentClass> ComponentClassToken<C> {
@@ -223,7 +222,7 @@ impl<C: ComponentClass> ComponentClassToken<C> {
         if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
             None
         } else {
-            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), phantom: PhantomType::new() })
+            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), _phantom: PhantomType::new() })
         }
     }
 }
