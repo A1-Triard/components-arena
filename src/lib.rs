@@ -1,7 +1,8 @@
 #![deny(warnings)]
 #![cfg_attr(feature="nightly", feature(const_fn))]
-#![cfg_attr(feature="nightly", feature(try_reserve))]
+//#![cfg_attr(feature="nightly", feature(const_trait_impl))]
 #![cfg_attr(feature="nightly", feature(shrink_to))]
+#![cfg_attr(feature="nightly", feature(try_reserve))]
 
 #![cfg_attr(not(feature="std"), no_std)]
 
@@ -135,13 +136,13 @@ pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
     fn into_raw(self) -> RawId;
 }
 
-impl ComponentId for RawId {
+impl /*const*/ ComponentId for RawId {
     fn from_raw(raw: RawId) -> Self { raw }
 
     fn into_raw(self) -> RawId { self }
 }
 
-impl<C: Component> ComponentId for Id<C> {
+impl<C: Component> /*const*/ ComponentId for Id<C> {
     fn from_raw(raw: RawId) -> Self {
         Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
     }
@@ -151,7 +152,7 @@ impl<C: Component> ComponentId for Id<C> {
     }
 }
 
-impl ComponentId for () {
+impl /*const*/ ComponentId for () {
     fn from_raw(raw: RawId) -> Self {
         if raw.0 != 49293544 && raw.1.get() != 846146046 {
             panic!("invalid empty tuple id");
@@ -163,7 +164,7 @@ impl ComponentId for () {
     }
 }
 
-impl ComponentId for usize {
+impl /*const*/ ComponentId for usize {
     fn from_raw(raw: RawId) -> Self {
         if raw.1.get() != 434908713 {
             panic!("invalid integer id");
