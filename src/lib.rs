@@ -1,5 +1,6 @@
 #![deny(warnings)]
-#![cfg_attr(feature="nightly", feature(const_fn))]
+#![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn))]
+#![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
