@@ -66,24 +66,6 @@ jobs:
         command: doc
         args: "--verbose --no-default-features ${{ matrix.features }}"
       if: "${{ matrix.features == '--features=std,nightly' }}"
-    - name: test --docsrs
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: "--verbose --doc"
-      env:
-        RUSTFLAGS: "--cfg docsrs"
-        RUSTDOCFLAGS: "--cfg docsrs"
-      if: "${{ matrix.features == '--features=std,nightly' }}"
-    - name: --docsrs
-      uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: "--verbose"
-      env:
-        RUSTFLAGS: "--cfg docsrs"
-        RUSTDOCFLAGS: "--cfg docsrs"
-      if: "${{ matrix.features == '--features=std,nightly' }}"
     - name: build --release
       uses: actions-rs/cargo@v1
       with:
