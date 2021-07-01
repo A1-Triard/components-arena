@@ -53,6 +53,7 @@ jobs:
       with:
         command: test
         args: "--verbose --tests --no-default-features ${{ matrix.features }}"
+      if: "${{ matrix.features == '--features=std,nightly' }}"
     - name: test --doc
       uses: actions-rs/cargo@v1
       with:
