@@ -1,6 +1,6 @@
 #![deny(warnings)]
-#![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn))]
 #![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
+#![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
@@ -14,9 +14,16 @@
 //! * `"nightly"`
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
 
+extern crate alloc;
 #[cfg(feature="std")]
 extern crate core;
-extern crate alloc;
+
+#[doc(hidden)]
+pub use core::compile_error as std_compile_error;
+#[doc(hidden)]
+pub use core::default::Default as std_default_Default;
+#[doc(hidden)]
+pub use generics::parse as generics_parse;
 
 #[cfg(feature="nightly")]
 use alloc::collections::TryReserveError;
@@ -39,13 +46,6 @@ use rand::{RngCore, SeedableRng};
 use std::ops::Deref;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::sync::Mutex;
-
-#[doc(hidden)]
-pub use core::compile_error as std_compile_error;
-#[doc(hidden)]
-pub use core::default::Default as std_default_Default;
-#[doc(hidden)]
-pub use generics::parse as generics_parse;
 
 /// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
 ///
@@ -221,10 +221,10 @@ impl<C: ComponentClass> ComponentClassToken<C> {
     /// All subsequent calls will return `None`.
     pub fn new() -> Option<ComponentClassToken<C>> {
         let lock = C::lock();
-        if lock.0.compare_and_swap(false, true, Ordering::Relaxed) {
-            None
-        } else {
+        if lock.0.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
             Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), _phantom: PhantomType::new() })
+        } else {
+            None
         }
     }
 }
