@@ -65,6 +65,7 @@ jobs:
       with:
         command: doc
         args: "--verbose --no-default-features ${{ matrix.features }}"
+      if: "${{ matrix.features == '--features=std,nightly' }}"
     - name: test --docsrs
       uses: actions-rs/cargo@v1
       with:
