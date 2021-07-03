@@ -2,6 +2,7 @@
 #![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
 #![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
+#![cfg_attr(all(feature="nightly", feature="std"), feature(once_cell))]
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
 
@@ -37,11 +38,11 @@ use core::ops::{Index, IndexMut};
 use core::sync::atomic::{AtomicBool, Ordering};
 use educe::Educe;
 use either::{Either, Left, Right};
-#[cfg(all(feature="std", feature="nightly"))]
-use once_cell::sync::{self};
 use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
+#[cfg(all(feature="std", feature="nightly"))]
+use std::lazy::SyncLazy;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::ops::Deref;
 #[cfg(all(feature="std", feature="nightly"))]
@@ -476,7 +477,7 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 /// # }
 /// ```
 #[cfg(all(feature="std", feature="nightly"))]
-pub struct ComponentClassMutex<C: ComponentClass>(sync::Lazy<Mutex<ComponentClassToken<C>>>);
+pub struct ComponentClassMutex<C: ComponentClass>(SyncLazy<Mutex<ComponentClassToken<C>>>);
 
 #[cfg(all(feature="std", feature="nightly"))]
 impl<C: ComponentClass> ComponentClassMutex<C> {
@@ -484,7 +485,7 @@ impl<C: ComponentClass> ComponentClassMutex<C> {
     ///
     /// The function is `const`, and can be used for static initialization.
     pub const fn new() -> Self {
-        ComponentClassMutex(sync::Lazy::new(|| Mutex::new(
+        ComponentClassMutex(SyncLazy::new(|| Mutex::new(
             ComponentClassToken::new().expect("component class token already crated")
         )))
     }
