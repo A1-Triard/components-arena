@@ -748,7 +748,8 @@ mod test {
     static TEST: ComponentClassMutex<Test> = ComponentClassMutex::new();
 
     #[quickcheck]
-    fn new_arena_min_capacity_is_zero(capacity: Option<usize>) -> bool {
+    fn new_arena_min_capacity_is_zero(capacity: Option<u8>) -> bool {
+        let capacity = capacity.map(|capacity| capacity as usize);
         capacity.map_or_else(
             || <Arena::<Test>>::new(&mut TEST.lock().unwrap()),
             |capacity| <Arena::<Test>>::with_capacity(capacity, &mut TEST.lock().unwrap())
@@ -756,7 +757,8 @@ mod test {
     }
 
     #[quickcheck]
-    fn arena_contains_inserted_item(capacity: Option<usize>, value: i8) -> bool {
+    fn arena_contains_inserted_item(capacity: Option<u8>, value: i8) -> bool {
+        let capacity = capacity.map(|capacity| capacity as usize);
         let mut arena = capacity.map_or_else(
             || Arena::new(&mut TEST.lock().unwrap()),
             |capacity| Arena::with_capacity(capacity, &mut TEST.lock().unwrap())
