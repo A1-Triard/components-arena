@@ -652,7 +652,7 @@ macro_rules! ComponentId {
 /// ```rust
 /// # use educe::Educe;
 /// # use macro_attr_2018::macro_attr;
-/// use components_arena::{Component, Id, ComponentId, NewtypeComponentId};
+/// use components_arena::{Component, Id, NewtypeComponentId};
 /// use phantom_type::PhantomType;
 ///
 /// # macro_attr! {
