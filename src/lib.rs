@@ -648,7 +648,7 @@ macro_rules! ComponentId {
 /// ```rust
 /// # use educe::Educe;
 /// # use macro_attr_2018::macro_attr;
-/// use components_arena::{Component, Id, ComponentId};
+/// use components_arena::{Component, Id, ComponentId, NewtypeComponentId};
 /// use phantom_type::PhantomType;
 ///
 /// # macro_attr! {
@@ -660,8 +660,7 @@ macro_rules! ComponentId {
 /// # }
 /// #
 /// macro_attr! {
-///     #[derive(NewtypeComponentId!)]
-///     #[derive(Educe)]
+///     #[derive(Educe, NewtypeComponentId!)]
 ///     #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 ///     pub struct Item<Tag, X>(Id<ItemNode<Tag>>, PhantomType<X>);
 /// }
@@ -705,7 +704,7 @@ macro_rules! NewtypeComponentId_impl {
         [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         $($body:tt)*
     ) => {
-        $crate::std_compile_error!("'ComponentId' deriving is supported for non-empty tuple structs only");
+        $crate::std_compile_error!("'NewtypeComponentId' deriving is supported for non-empty tuple structs only");
     };
 }
 
