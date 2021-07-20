@@ -33,7 +33,7 @@ impl List {
         List { last: None, nodes: Arena::new(&mut NODE.lock().unwrap()) }
     }
 
-    fn push(&mut self, data: () -> Id<Node> {
+    fn push(&mut self, data: ()) -> Id<Node> {
         let id = self.nodes.insert(|id| (Node { next: id, data }, id));
         if let Some(last) = self.last {
             self.nodes[id].next = replace(&mut self.nodes[last].next, id);
