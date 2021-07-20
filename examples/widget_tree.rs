@@ -3,7 +3,7 @@
 
 mod widget_tree {
     use macro_attr_2018::macro_attr;
-    use components_arena::{Component, Arena, Id, ComponentClassMutex};
+    use components_arena::{Component, Arena, Id, ComponentClassMutex, NewtypeComponentId};
 
     macro_attr! {
         #[derive(Component!)]
@@ -33,8 +33,10 @@ mod widget_tree {
         pub fn root(&self) -> Widget { Widget(self.root) }
     }
 
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-    pub struct Widget(Id<WidgetNode>);
+    macro_attr! {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, NewtypeComponentId!)]
+        pub struct Widget(Id<WidgetNode>);
+    }
 
     impl Widget {
         pub fn new(tree: &mut WidgetTree, parent: Widget) -> Widget {

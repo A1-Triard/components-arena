@@ -1,3 +1,10 @@
+//! **Crate features**
+//!
+//! * `"std"`
+//! Enabled by default. Disable to make the library `#![no_std]`.
+//! * `"nightly"`
+//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
+
 #![deny(warnings)]
 #![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
 #![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
@@ -8,12 +15,8 @@
 
 #![cfg_attr(not(feature="std"), no_std)]
 
-//! **Crate features**
-//!
-//! * `"std"`
-//! Enabled by default. Disable to make the library `#![no_std]`.
-//! * `"nightly"`
-//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
+#[cfg(feature="nightly")]
+include!("doc_test_readme.include");
 
 extern crate alloc;
 #[cfg(feature="std")]
@@ -633,7 +636,7 @@ macro_rules! Component_impl {
 
 #[deprecated(note="Use NewtypeComponentId instead.")]
 #[macro_export]
-macro_rules! ComponentId_ {
+macro_rules! ComponentId {
     ($($token:tt)*) => { $crate::NewtypeComponentId! { $($token)* } };
 }
 
@@ -657,7 +660,7 @@ macro_rules! ComponentId_ {
 /// # }
 /// #
 /// macro_attr! {
-///     #[derive(ComponentId!)]
+///     #[derive(NewtypeComponentId!)]
 ///     #[derive(Educe)]
 ///     #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 ///     pub struct Item<Tag, X>(Id<ItemNode<Tag>>, PhantomType<X>);
