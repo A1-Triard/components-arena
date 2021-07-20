@@ -38,13 +38,15 @@ use core::ops::{Index, IndexMut};
 use core::sync::atomic::{AtomicBool, Ordering};
 use educe::Educe;
 use either::{Either, Left, Right};
+#[cfg(all(feature="std", feature="nightly"))]
+use macro_attr_2018::macro_attr;
+#[cfg(all(feature="std", feature="nightly"))]
+use newtype_derive_2018::NewtypeDeref;
 use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
 #[cfg(all(feature="std", feature="nightly"))]
 use std::lazy::SyncLazy;
-#[cfg(all(feature="std", feature="nightly"))]
-use std::ops::Deref;
 #[cfg(all(feature="std", feature="nightly"))]
 use std::sync::Mutex;
 
@@ -212,6 +214,7 @@ pub struct Arena<C: Component> {
 /// ```
 ///
 /// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
+#[derive(Debug)]
 pub struct ComponentClassToken<C: ComponentClass> {
     guard_seed_rng: SmallRng,
     _phantom: PhantomType<C>
@@ -454,30 +457,33 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     }
 }
 
-/// Helps to store [`ComponentClassToken`](ComponentClassToken) in a static.
-///
-/// # Examples
-///
-/// ```rust
-/// # use macro_attr_2018::macro_attr;
-/// # use components_arena::{Component, ComponentClassMutex, Arena};
-/// #
-/// macro_attr! {
-///     #[derive(Component!)]
-///     struct MyComponent { /* ... */ }
-/// }
-///
-/// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-///
-/// // ...
-///
-/// # fn main() {
-/// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-/// # let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-/// # }
-/// ```
 #[cfg(all(feature="std", feature="nightly"))]
-pub struct ComponentClassMutex<C: ComponentClass>(SyncLazy<Mutex<ComponentClassToken<C>>>);
+macro_attr! {
+    /// Helps to store [`ComponentClassToken`](ComponentClassToken) in a static.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use macro_attr_2018::macro_attr;
+              /// # use components_arena::{Component, ComponentClassMutex, Arena};
+    /// #
+    /// macro_attr! {
+    ///     #[derive(Component!)]
+    ///     struct MyComponent { /* ... */ }
+    /// }
+    ///
+    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
+    ///
+    /// // ...
+    ///
+    /// # fn main() {
+    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    /// # let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
+    /// # }
+    /// ```
+    #[derive(Debug, NewtypeDeref!)]
+    pub struct ComponentClassMutex<C: ComponentClass>(SyncLazy<Mutex<ComponentClassToken<C>>>);
+}
 
 #[cfg(all(feature="std", feature="nightly"))]
 impl<C: ComponentClass> ComponentClassMutex<C> {
@@ -489,13 +495,6 @@ impl<C: ComponentClass> ComponentClassMutex<C> {
             ComponentClassToken::new().expect("component class token already crated")
         )))
     }
-}
-
-#[cfg(all(feature="std", feature="nightly"))]
-impl<C: ComponentClass> Deref for ComponentClassMutex<C> {
-    type Target = Mutex<ComponentClassToken<C>>;
-
-    fn deref(&self) -> &Self::Target { self.0.deref() }
 }
 
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
@@ -556,7 +555,7 @@ macro_rules! Component {
         $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::Component {
+            $crate::Component_impl {
                 @impl [$vis] [$name] [$($class)?]
             }
             $($body)*
@@ -568,21 +567,27 @@ macro_rules! Component {
         $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::Component {
+            $crate::Component_impl {
                 @impl [$vis] [$name] [$($class)?]
             }
             $($body)*
         }
     };
+}
+
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! Component_impl {
     (
         @impl [$vis:vis] [$name:ident] [] [] [] [] $($body:tt)*
     ) => {
-        $crate::Component! { @self [$name] }
+        $crate::Component_impl! { @self [$name] }
     };
     (
         @impl [$vis:vis] [$name:ident] [$class:ident] [] [] [] $($body:tt)*
     ) => {
-        $crate::Component! { @class [$vis] [$name] [$class] [] [] [] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [] [] [] }
     };
     (
         @impl [$vis:vis] [$name:ident] [] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
@@ -595,7 +600,7 @@ macro_rules! Component {
     (
         @impl [$vis:vis] [$name:ident] [$class:ident] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
     ) => {
-        $crate::Component! { @class [$vis] [$name] [$class] [$($g)+] [$($r)+] [$($w)*] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($g)+] [$($r)+] [$($w)*] }
     };
     (
         @self [$name:ident]
@@ -626,7 +631,8 @@ macro_rules! Component {
     };
 }
 
-/// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`ComponentId`](trait@ComponentId) trait.
+/// [Macro attribute](https://crates.io/crates/macro-attr-2018)
+/// for deriving [`ComponentId`](trait@ComponentId) trait.
 ///
 /// # Examples
 ///
@@ -652,62 +658,45 @@ macro_rules! Component {
 /// }
 /// ```
 #[macro_export]
-macro_rules! ComponentId {
+macro_rules! NewtypeComponentId {
     (
         ()
         $vis:vis struct $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::ComponentId {
-                @struct [$vis] [$name]
+            $crate::NewtypeComponentId_impl {
+                [$name]
             }
             $($body)*
         }
     };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! NewtypeComponentId_impl {
     (
-        @struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        ($id:ty $(, $($phantom:ty),+ $(,)?)?);
-    ) => {
-        $crate::ComponentId! {
-            @impl [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
-            []
-            [$($($phantom),+)?]
-        }
-    };
-    (
-        @struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        $($body:tt)*
-    ) => {
-        $crate::std_compile_error!("'ComponentId' deriving is supported for non-empty tuple structs only");
-    };
-    (
-        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($phantom_args:tt)*]
-        [$phantom:ty $(, $($other_phantoms:tt)+)?]
-    ) => {
-        $crate::ComponentId! {
-            @impl [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($phantom_args)*
-                $crate::std_default_Default::default(),
-            ]
-            [$($($other_phantoms)+)?]
-        }
-    };
-    (
-        @impl [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($phantom_args:tt)*]
-        []
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        ($(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?);
     ) => {
         impl $($g)* $crate::ComponentId for $name $($r)* $($w)* {
             fn from_raw(raw: $crate::RawId) -> Self {
-                $name($crate::Id::from_raw(raw), $($phantom_args)*)
+                $name(
+                    $crate::Id::from_raw(raw)
+                    $(, <$phantom as $crate::std_default_Default>::default())*
+                )
             }
 
             fn into_raw(self) -> $crate::RawId {
                 $crate::Id::into_raw(self.0)
             }
         }
+    };
+    (
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("'ComponentId' deriving is supported for non-empty tuple structs only");
     };
 }
 
@@ -787,21 +776,21 @@ mod test {
     }
 
     macro_attr! {
-        #[derive(ComponentId!)]
+        #[derive(NewtypeComponentId!)]
         #[derive(Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap1(Id<Test>);
     }
 
     macro_attr! {
-        #[derive(ComponentId!)]
+        #[derive(NewtypeComponentId!)]
         #[derive(Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap2<X>(Id<Test>, PhantomType<X>);
     }
 
     macro_attr! {
-        #[derive(ComponentId!)]
+        #[derive(NewtypeComponentId!)]
         #[derive(Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap3<X, Y: Copy>(Id<Test>, PhantomType<X>, PhantomType<Y>);

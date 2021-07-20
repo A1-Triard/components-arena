@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "components-arena"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Simple library for creating complex domain-specific self-referential data structures."
 readme = "README.md"
@@ -19,12 +19,13 @@ nightly = []
 [dependencies]
 educe = "0.4.18"
 either = { version = "1.5.3", default-features = false }
+macro-attr-2018 = "1.1.1"
+newtype-derive-2018 = "0.0.1"
 rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
-generics = "0.2.7"
+generics = "0.2.8"
 phantom-type = { version = "0.3.1", default-features = false }
 
 [dev-dependencies]
-macro-attr-2018 = "1.1.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 
