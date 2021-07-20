@@ -633,7 +633,7 @@ macro_rules! Component_impl {
 
 #[deprecated(note="Use NewtypeComponentId instead.")]
 #[macro_export]
-macro_rules! ComponentId {
+macro_rules! ComponentId_ {
     ($($token:tt)*) => { $crate::NewtypeComponentId! { $($token)* } };
 }
 
