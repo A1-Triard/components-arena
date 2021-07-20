@@ -489,18 +489,18 @@ macro_attr! {
     /// # }
     /// ```
     #[derive(Debug, NewtypeDeref!)]
-    pub struct ComponentClassMutex<C: ComponentClass>(SyncLazy<Mutex<ComponentClassToken<C>>>);
+    pub struct ComponentClassMutex<C: ComponentClass, W=ComponentClassToken<C>>(SyncLazy<Mutex<W>>, PhantomType<C>);
 }
 
 #[cfg(all(feature="std", feature="nightly"))]
-impl<C: ComponentClass> ComponentClassMutex<C> {
+impl<C: ComponentClass, W> ComponentClassMutex<C, W> where ComponentClassToken<C>: Into<W> {
     /// Creates new `ComponentClassMutex` instance.
     ///
     /// The function is `const`, and can be used for static initialization.
     pub const fn new() -> Self {
         ComponentClassMutex(SyncLazy::new(|| Mutex::new(
-            ComponentClassToken::new().expect("component class token already crated")
-        )))
+            ComponentClassToken::new().expect("component class token already crated").into()
+        )), PhantomType::new())
     }
 }
 
