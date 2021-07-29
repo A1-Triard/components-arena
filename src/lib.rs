@@ -694,13 +694,13 @@ macro_rules! NewtypeComponentId_impl {
         impl $($g)* $crate::ComponentId for $name $($r)* $($w)* {
             fn from_raw(raw: $crate::RawId) -> Self {
                 $name(
-                    $crate::Id::from_raw(raw)
+                    <$id as $crate::ComponentId>::from_raw(raw)
                     $(, <$phantom as $crate::std_default_Default>::default())*
                 )
             }
 
             fn into_raw(self) -> $crate::RawId {
-                $crate::Id::into_raw(self.0)
+                <$id as $crate::ComponentId>::into_raw(self.0)
             }
         }
     };
@@ -788,23 +788,26 @@ mod test {
     }
 
     macro_attr! {
-        #[derive(NewtypeComponentId!)]
-        #[derive(Educe)]
+        #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap1(Id<Test>);
     }
 
     macro_attr! {
-        #[derive(NewtypeComponentId!)]
-        #[derive(Educe)]
+        #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap2<X>(Id<Test>, PhantomType<X>);
     }
 
     macro_attr! {
-        #[derive(NewtypeComponentId!)]
-        #[derive(Educe)]
+        #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap3<X, Y: Copy>(Id<Test>, PhantomType<X>, PhantomType<Y>);
+    }
+
+    macro_attr! {
+        #[derive(NewtypeComponentId!, Educe)]
+        #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        struct IdWrap4<X, Y: Copy>((), PhantomType<X>, PhantomType<Y>);
     }
 }
