@@ -62,12 +62,6 @@ jobs:
       with:
         command: build
         args: "--verbose --release --no-default-features ${{ matrix.features }}"
-    - name: test --example widget_tree_no_std
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: "--verbose --example widget_tree_no_std --no-default-features ${{ matrix.features }}"
-      if: "${{ matrix.rust == 'nightly' }}"
     - name: test --example widget_tree
       uses: actions-rs/cargo@v1
       with:
