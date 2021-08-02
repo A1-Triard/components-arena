@@ -67,7 +67,7 @@ impl Default for ComponentClassToken {
 /// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
-/// an own [`ComponentClassLock`](ComponentClassLock) instance for every specialization because Rust
+/// an own [`ComponentClassToken`](ComponentClassToken) instance for every specialization because Rust
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
