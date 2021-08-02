@@ -10,10 +10,8 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 
-#![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
 #![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(all(feature="nightly", feature="std"), feature(once_cell))]
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
 
@@ -42,36 +40,29 @@ use core::hint::unreachable_unchecked;
 use core::mem::replace;
 use core::num::{NonZeroUsize};
 use core::ops::{Index, IndexMut};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use educe::Educe;
 use either::{Either, Left, Right};
-#[cfg(all(feature="std", feature="nightly"))]
-use macro_attr_2018::macro_attr;
-#[cfg(all(feature="std", feature="nightly"))]
-use newtype_derive_2018::NewtypeDeref;
 use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
-#[cfg(all(feature="std", feature="nightly"))]
-use std::lazy::SyncLazy;
-#[cfg(all(feature="std", feature="nightly"))]
-use std::sync::Mutex;
 
-/// The return type of the [`ComponentClass::lock`](ComponentClass::lock) function.
+/// [Component class](ComponentClass) static shared data.
+/// The return type of the [`ComponentClass::token`](ComponentClass::token) function.
 ///
-/// The [`ComponentClass::lock`](ComponentClass::lock) function
+/// The [`ComponentClass::token`](ComponentClass::token) function
 /// is essential for components arena internal mechanic.
-pub struct ComponentClassLock(AtomicBool);
+pub struct ComponentClassToken(AtomicUsize);
 
-impl ComponentClassLock {
+impl ComponentClassToken {
     /// Creates new `ComponentClassLock` instance.
     ///
     /// The function is `const`, and can be used for static initialization.
-    pub const fn new() -> Self { ComponentClassLock(AtomicBool::new(false)) }
+    pub const fn new() -> Self { ComponentClassToken(AtomicUsize::new(0)) }
 }
 
-impl Default for ComponentClassLock {
-    fn default() -> Self { ComponentClassLock::new() }
+impl Default for ComponentClassToken {
+    fn default() -> Self { ComponentClassToken::new() }
 }
 
 /// An utility trait describing a specific component type.
@@ -88,26 +79,26 @@ impl Default for ComponentClassLock {
 /// `ComponentClass` for this synthetic type.
 ///
 /// Correct implementation should return reference to the one and same
-/// `ComponentClassLock` instance from the [`lock`](ComponentClass::lock) function.
+/// `ComponentClassToken` instance from the [`token`](ComponentClass::token) function.
 /// Also it should be guaranteed that no other `ComponentClass` implementation
 /// returns same `ComponentClassLock` instance.
 /// This requirements can be easily satisfied with private static:
 ///
 /// ```rust
-/// # use components_arena::{ComponentClass, ComponentClassLock};
+/// # use components_arena::{ComponentClass, ComponentClassToken};
 /// #
 /// struct MyComponent { /* ... */ }
 ///
 /// impl ComponentClass for MyComponent {
-///     fn lock() -> &'static ComponentClassLock {
-///         static LOCK: ComponentClassLock = ComponentClassLock::new();
-///         &LOCK
+///     fn token() -> &'static ComponentClassToken {
+///         static TOKEN: ComponentClassToken = ComponentClassToken::new();
+///         &TOKEN
 ///     }
 /// }
 /// ```
 pub trait ComponentClass {
     /// Essential for components arena internal mechanic.
-    fn lock() -> &'static ComponentClassLock where Self: Sized;
+    fn token() -> &'static ComponentClassToken where Self: Sized;
 }
 
 /// An implementer of the `Component` trait is a type, whose values can be placed into
@@ -196,64 +187,22 @@ pub struct Arena<C: Component> {
     vacancy: Option<usize>,
 }
 
-/// [Component class](ComponentClass) static shared data.
-///
-/// In the no-`no_std` environment it can be stored inside static
-/// [`ComponentClassMutex`](ComponentClassMutex):
-///
-/// ```rust
-/// # use macro_attr_2018::macro_attr;
-/// # use components_arena::{Component, ComponentClassMutex, Arena};
-/// #
-/// macro_attr! {
-///     #[derive(Component!)]
-///     struct MyComponent { /* ... */ }
-/// }
-///
-/// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-///
-/// // ...
-///
-/// # fn main() {
-/// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-/// let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-/// # }
-/// ```
-///
-/// In the `no_std` environment a custom solution should be used to store `ComponentClassToken`.
-#[derive(Debug)]
-pub struct ComponentClassToken<C: ComponentClass> {
-    guard_seed_rng: SmallRng,
-    _phantom: PhantomType<C>
-}
-
-impl<C: ComponentClass> ComponentClassToken<C> {
-    /// Creates components shared data storage on first call for every component type `C`.
-    /// All subsequent calls will return `None`.
-    pub fn new() -> Option<ComponentClassToken<C>> {
-        let lock = C::lock();
-        if lock.0.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
-            Some(ComponentClassToken { guard_seed_rng: SmallRng::seed_from_u64(42), _phantom: PhantomType::new() })
-        } else {
-            None
-        }
-    }
-}
-
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
-    pub fn new(class: &mut ComponentClassToken<C::Class>) -> Self {
+    pub fn new() -> Self {
+        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
         Arena {
-            guard_rng: SmallRng::seed_from_u64(class.guard_seed_rng.next_u64()),
+            guard_rng: SmallRng::seed_from_u64(seed as u64),
             items: Vec::new(),
             vacancy: None
         }
     }
 
     /// Creates an arena instance with the specified initial capacity.
-    pub fn with_capacity(capacity: usize, class: &mut ComponentClassToken<C::Class>) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
+        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
         Arena {
-            guard_rng: SmallRng::seed_from_u64(class.guard_seed_rng.next_u64()),
+            guard_rng: SmallRng::seed_from_u64(seed as u64),
             items: Vec::with_capacity(capacity),
             vacancy: None
         }
@@ -464,46 +413,6 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     }
 }
 
-#[cfg(all(feature="std", feature="nightly"))]
-macro_attr! {
-    /// Helps to store [`ComponentClassToken`](ComponentClassToken) in a static.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use macro_attr_2018::macro_attr;
-              /// # use components_arena::{Component, ComponentClassMutex, Arena};
-    /// #
-    /// macro_attr! {
-    ///     #[derive(Component!)]
-    ///     struct MyComponent { /* ... */ }
-    /// }
-    ///
-    /// static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-    ///
-    /// // ...
-    ///
-    /// # fn main() {
-    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
-    /// # let id = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// # }
-    /// ```
-    #[derive(Debug, NewtypeDeref!)]
-    pub struct ComponentClassMutex<C: ComponentClass, W=ComponentClassToken<C>>(SyncLazy<Mutex<W>>, PhantomType<C>);
-}
-
-#[cfg(all(feature="std", feature="nightly"))]
-impl<C: ComponentClass, W> ComponentClassMutex<C, W> where ComponentClassToken<C>: Into<W> {
-    /// Creates new `ComponentClassMutex` instance.
-    ///
-    /// The function is `const`, and can be used for static initialization.
-    pub const fn new() -> Self {
-        ComponentClassMutex(SyncLazy::new(|| Mutex::new(
-            ComponentClassToken::new().expect("component class token already crated").into()
-        )), PhantomType::new())
-    }
-}
-
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
 ///
 /// # Examples
@@ -613,9 +522,9 @@ macro_rules! Component_impl {
         @self [$name:ident]
     ) => {
         impl $crate::ComponentClass for $name {
-            fn lock() -> &'static $crate::ComponentClassLock {
-                static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
-                &LOCK
+            fn token() -> &'static $crate::ComponentClassToken {
+                static TOKEN: $crate::ComponentClassToken = $crate::ComponentClassToken::new();
+                &TOKEN
             }
         }
         impl $crate::Component for $name {
@@ -627,21 +536,15 @@ macro_rules! Component_impl {
     ) => {
         $vis enum $class { }
         impl $crate::ComponentClass for $class {
-            fn lock() -> &'static $crate::ComponentClassLock {
-                static LOCK: $crate::ComponentClassLock = $crate::ComponentClassLock::new();
-                &LOCK
+            fn token() -> &'static $crate::ComponentClassToken {
+                static TOKEN: $crate::ComponentClassToken = $crate::ComponentClassToken::new();
+                &TOKEN
             }
         }
         impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
         }
     };
-}
-
-/// Obsolete. Use [`NewtypeComponentId`] instead.
-#[macro_export]
-macro_rules! ComponentId {
-    ($($token:tt)*) => { $crate::NewtypeComponentId! { $($token)* } };
 }
 
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018)
@@ -717,7 +620,7 @@ mod test {
     use macro_attr_2018::macro_attr;
     use quickcheck_macros::quickcheck;
 
-    use std::sync::atomic::{Ordering, AtomicI8};
+    use core::sync::atomic::{Ordering, AtomicI8};
     use crate::*;
 
     macro_attr! {
@@ -746,14 +649,12 @@ mod test {
         }
     }
 
-    static TEST: ComponentClassMutex<Test> = ComponentClassMutex::new();
-
     #[quickcheck]
     fn new_arena_min_capacity_is_zero(capacity: Option<u8>) -> bool {
         let capacity = capacity.map(|capacity| capacity as usize);
         capacity.map_or_else(
-            || <Arena::<Test>>::new(&mut TEST.lock().unwrap()),
-            |capacity| <Arena::<Test>>::with_capacity(capacity, &mut TEST.lock().unwrap())
+            || <Arena::<Test>>::new(),
+            |capacity| <Arena::<Test>>::with_capacity(capacity)
         ).min_capacity() == 0
     }
 
@@ -761,8 +662,8 @@ mod test {
     fn arena_contains_inserted_item(capacity: Option<u8>, value: i8) -> bool {
         let capacity = capacity.map(|capacity| capacity as usize);
         let mut arena = capacity.map_or_else(
-            || Arena::new(&mut TEST.lock().unwrap()),
-            |capacity| Arena::with_capacity(capacity, &mut TEST.lock().unwrap())
+            || Arena::new(),
+            |capacity| Arena::with_capacity(capacity)
         );
         let id = arena.insert(|this| (Test { this, value }, this));
         arena[id].this == id && arena[id].value == value
@@ -771,7 +672,7 @@ mod test {
     #[should_panic]
     #[test]
     fn foreign_id_cause_panic() {
-        let mut arena = Arena::new(&mut TEST.lock().unwrap());
+        let mut arena = Arena::new();
         let id = arena.insert(|this| (Test { this, value: 7 }, this)).into_raw();
         let id = Id::from_raw((id.0, unsafe { NonZeroUsize::new_unchecked(17) }));
         let _ = &arena[id];
@@ -780,7 +681,7 @@ mod test {
     #[test]
     fn drop_components() {
         {
-            let mut arena = Arena::new(&mut TEST.lock().unwrap());
+            let mut arena = Arena::new();
             arena.insert(|this| (Test { this, value: 7 }, this)).into_raw();
             TEST_DROP.store(-1, Ordering::SeqCst);
         }

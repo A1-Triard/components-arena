@@ -5,7 +5,7 @@
 
 mod widget_tree {
     use macro_attr_2018::macro_attr;
-    use components_arena::{Component, Arena, Id, ComponentClassToken, NewtypeComponentId};
+    use components_arena::{Component, Arena, Id, NewtypeComponentId};
 
     macro_attr! {
         #[derive(Component!)]
@@ -21,15 +21,9 @@ mod widget_tree {
         root: Id<WidgetNode>,
     }
 
-    pub struct WidgetTreeToken(ComponentClassToken<WidgetNode>);
-
-    impl WidgetTreeToken {
-        pub fn new() -> Option<WidgetTreeToken> { ComponentClassToken::new().map(WidgetTreeToken) }
-    }
-
     impl WidgetTree {
-        pub fn new(token: &mut WidgetTreeToken) -> WidgetTree {
-            let mut arena = Arena::new(&mut token.0);
+        pub fn new() -> WidgetTree {
+            let mut arena = Arena::new();
             let root = arena.insert(|this| (WidgetNode {
                 parent: None, next: this, last_child: None
             }, this));
@@ -68,8 +62,7 @@ mod widget_tree {
 use widget_tree::*;
 
 fn main() {
-    let token = &mut WidgetTreeToken::new().unwrap();
-    let tree = &mut WidgetTree::new(token);
+    let tree = &mut WidgetTree::new();
     let widget = Widget::new(tree, tree.root());
     assert_eq!(widget.parent(tree), Some(tree.root()));
 }

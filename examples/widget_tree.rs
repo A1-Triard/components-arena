@@ -3,7 +3,7 @@
 
 mod widget_tree {
     use macro_attr_2018::macro_attr;
-    use components_arena::{Component, Arena, Id, ComponentClassMutex, NewtypeComponentId};
+    use components_arena::{Component, Arena, Id, NewtypeComponentId};
 
     macro_attr! {
         #[derive(Component!)]
@@ -14,8 +14,6 @@ mod widget_tree {
         }
     }
 
-    static WIDGET_NODE: ComponentClassMutex<WidgetNode> = ComponentClassMutex::new();
-
     pub struct WidgetTree {
         arena: Arena<WidgetNode>,
         root: Id<WidgetNode>,
@@ -23,7 +21,7 @@ mod widget_tree {
 
     impl WidgetTree {
         pub fn new() -> WidgetTree {
-            let mut arena = Arena::new(&mut WIDGET_NODE.lock().unwrap());
+            let mut arena = Arena::new();
             let root = arena.insert(|this| (WidgetNode {
                 parent: None, next: this, last_child: None
             }, this));
