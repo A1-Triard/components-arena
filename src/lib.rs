@@ -8,7 +8,7 @@
 #![deny(warnings)]
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
-![doc(test(attr(allow(unused_variables))))]
+#![doc(test(attr(allow(unused_variables))))]
 
 #![cfg_attr(all(feature="nightly", feature="std"), feature(const_fn_fn_ptr_basics))]
 #![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
