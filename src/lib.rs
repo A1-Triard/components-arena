@@ -175,37 +175,18 @@ impl /*const*/ ComponentId for usize {
     }
 }
 
-/// Unordered container with random access.
-#[derive(Debug)]
-pub struct Arena<C: Component> {
-    guard_rng: SmallRng,
-    items: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
+/// A (mostly readonly) inner container holding [`Arena`](Arena) items.
+/// While [`Arena`](Arena) itself is unique (i.e. non-clonable) object,
+/// arena ['items'](Arena::items) could be cloned.
+#[derive(Debug, Clone)]
+pub struct ArenaItems<C: Component> {
+    vec: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
     vacancy: Option<usize>,
 }
 
-impl<C: Component> Arena<C> {
-    /// Creates an arena instance.
-    pub fn new() -> Self {
-        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
-        Arena {
-            guard_rng: SmallRng::seed_from_u64(seed as u64),
-            items: Vec::new(),
-            vacancy: None
-        }
-    }
-
-    /// Creates an arena instance with the specified initial capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
-        Arena {
-            guard_rng: SmallRng::seed_from_u64(seed as u64),
-            items: Vec::with_capacity(capacity),
-            vacancy: None
-        }
-    }
-
+impl<C: Component> ArenaItems<C> {
     /// Returns the number of elements the arena can hold without reallocating.
-    pub fn capacity(&self) -> usize { self.items.capacity() }
+    pub fn capacity(&self) -> usize { self.vec.capacity() }
 
     /// Returns the number of elements in the arena.
     ///
@@ -215,15 +196,15 @@ impl<C: Component> Arena<C> {
         let mut vacancy = self.vacancy;
         while let Some(i) = vacancy {
             vacancies += 1;
-            vacancy = *self.items[i].as_ref().left().unwrap();
+            vacancy = *self.vec[i].as_ref().left().unwrap();
         }
-        self.items.len() - vacancies
+        self.vec.len() - vacancies
     }
 
     /// Returns `true` if the arena contains no elements.
     ///
     /// This function has linear worst-case complexity.
-    pub fn is_empty(&self) -> bool { self.items.iter().all(|x| x.is_left()) }
+    pub fn is_empty(&self) -> bool { self.vec.iter().all(|x| x.is_left()) }
 
     /// Returns the maximum number of elements ever in the arena.
     /// The arena capacity cannot be less than `min_capacity`.
@@ -243,20 +224,20 @@ impl<C: Component> Arena<C> {
     /// #
     /// # fn main() {
     /// let mut arena = Arena::new();
-    /// assert_eq!(arena.min_capacity(), 0);
+    /// assert_eq!(arena.items().min_capacity(), 0);
     /// let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// assert_eq!(arena.min_capacity(), 1);
+    /// assert_eq!(arena.items().min_capacity(), 1);
     /// let id_2 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// assert_eq!(arena.min_capacity(), 2);
+    /// assert_eq!(arena.items().min_capacity(), 2);
     /// arena.remove(id_1);
-    /// assert_eq!(arena.min_capacity(), 2);
+    /// assert_eq!(arena.items().min_capacity(), 2);
     /// let id_3 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// assert_eq!(arena.min_capacity(), 2);
+    /// assert_eq!(arena.items().min_capacity(), 2);
     /// let id_4 = arena.insert(|id| (MyComponent { /* ... */ }, id));
-    /// assert_eq!(arena.min_capacity(), 3);
+    /// assert_eq!(arena.items().min_capacity(), 3);
     /// # }
     /// ```
-    pub fn min_capacity(&self) -> usize { self.items.len() }
+    pub fn min_capacity(&self) -> usize { self.vec.len() }
 
     /// Reserves capacity for at least `additional` more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
@@ -266,6 +247,158 @@ impl<C: Component> Arena<C> {
     /// # Panics
     ///
     /// Panics if the new capacity overflows usize.
+    pub fn reserve(&mut self, additional: usize) { self.vec.reserve(additional) }
+
+    /// Reserves the minimum capacity for exactly `additional` more elements.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to
+    /// `self.min_capacity() + additional`. Does nothing if the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer [`reserve`](Arena::reserve) if future insertions are expected.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
+    pub fn reserve_exact(&mut self, additional: usize) { self.vec.reserve_exact(additional) }
+
+    /// Shrinks the capacity of the arena with a lower bound.
+    ///
+    /// The capacity will remain at least as large as both the [`min_capacity`](Arena::min_capacity)
+    /// and the supplied value.
+    #[cfg(feature="nightly")]
+    pub fn shrink_to(&mut self, min_capacity: usize) { self.vec.shrink_to(min_capacity) }
+
+    /// Shrinks the capacity of the vector as much as possible.
+    ///
+    /// It will drop down as close as possible to the [`min_capacity`](Arena::min_capacity)
+    /// but the allocator may still inform the arena that there is space for a few more elements.
+    pub fn shrink_to_fit(&mut self) { self.vec.shrink_to_fit() }
+
+    /// Tries to reserve capacity for at least additional more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve`, capacity will be greater than or equal
+    /// to `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
+    #[cfg(feature="nightly")]
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.vec.try_reserve(additional)
+    }
+
+    /// Tries to reserve capacity for exactly `additional` more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve_exact`, capacity will be greater than or equal
+    /// to `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer [`try_reserve`](Arena::try_reserve) if future insertions are expected.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
+    #[cfg(feature="nightly")]
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.vec.try_reserve_exact(additional)
+    }
+
+    /// Returns [`Id`](Id) of item occupying `index` place, or `None` if there is no such.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
+    pub fn id(&self, index: usize) -> Option<Id<C>> {
+        self.vec[index].as_ref().right().map(|(guard, _)| Id { index, guard: *guard, phantom: PhantomType::new() })
+    }
+
+    /// Returns item occupying `index` place, or `None` if there is no such.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
+    pub fn item(&self, index: usize) -> Option<&C> {
+        self.vec[index].as_ref().right().map(|(_, item)| item)
+    }
+}
+
+/// Unordered container with random access.
+#[derive(Debug)]
+pub struct Arena<C: Component> {
+    guard_rng: SmallRng,
+    items: ArenaItems<C>,
+}
+
+impl<C: Component> Arena<C> {
+    /// Creates an arena instance.
+    pub fn new() -> Self {
+        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
+        Arena {
+            guard_rng: SmallRng::seed_from_u64(seed as u64),
+            items: ArenaItems {
+                vec: Vec::new(),
+                vacancy: None
+            }
+        }
+    }
+
+    /// Creates an arena instance with the specified initial capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
+        Arena {
+            guard_rng: SmallRng::seed_from_u64(seed as u64),
+            items: ArenaItems {
+                vec: Vec::with_capacity(capacity),
+                vacancy: None
+            }
+        }
+    }
+
+    /// Returns reference to contained items packed in a special container.
+    /// While arena itself is unique (i.e. non-clonable) object,
+    /// this special container could be cloned.
+    pub fn items(&self) -> &ArenaItems<C> { &self.items }
+
+    /// Returns mutable reference to contained items packed in
+    /// a (mostly readonly) special container.
+    /// While arena itself is unique (i.e. non-clonable) object,
+    /// this special container could be cloned.
+    pub fn items_mut(&mut self) -> &mut ArenaItems<C> { &mut self.items }
+
+    /// Returns the number of elements the arena can hold without reallocating.
+    #[deprecated="use items().capacity instead"]
+    pub fn capacity(&self) -> usize { self.items.capacity() }
+
+    /// Returns the number of elements in the arena.
+    ///
+    /// This function has linear worst-case complexity.
+    #[deprecated="use items().len instead"]
+    pub fn len(&self) -> usize { self.items.len() }
+
+    /// Returns `true` if the arena contains no elements.
+    ///
+    /// This function has linear worst-case complexity.
+    #[deprecated="use items().is_empty instead"]
+    pub fn is_empty(&self) -> bool { self.items.is_empty() }
+
+    /// Returns the maximum number of elements ever in the arena.
+    /// The arena capacity cannot be less than `min_capacity`.
+    ///
+    /// Arena `min_capacity` never decreases.
+    #[deprecated="use items().min_capacity instead"]
+    pub fn min_capacity(&self) -> usize { self.items.min_capacity() }
+
+    /// Reserves capacity for at least `additional` more elements.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `reserve`, capacity will be greater than or equal to
+    /// `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
+    #[deprecated="use items_mut().reserve instead"]
     pub fn reserve(&mut self, additional: usize) { self.items.reserve(additional) }
 
     /// Reserves the minimum capacity for exactly `additional` more elements.
@@ -279,6 +412,7 @@ impl<C: Component> Arena<C> {
     /// # Panics
     ///
     /// Panics if the new capacity overflows usize.
+    #[deprecated="use items_mut().reserve_exact instead"]
     pub fn reserve_exact(&mut self, additional: usize) { self.items.reserve_exact(additional) }
 
     /// Shrinks the capacity of the arena with a lower bound.
@@ -286,12 +420,14 @@ impl<C: Component> Arena<C> {
     /// The capacity will remain at least as large as both the [`min_capacity`](Arena::min_capacity)
     /// and the supplied value.
     #[cfg(feature="nightly")]
+    #[deprecated="use items_mut().shrink_to instead"]
     pub fn shrink_to(&mut self, min_capacity: usize) { self.items.shrink_to(min_capacity) }
 
     /// Shrinks the capacity of the vector as much as possible.
     ///
     /// It will drop down as close as possible to the [`min_capacity`](Arena::min_capacity)
     /// but the allocator may still inform the arena that there is space for a few more elements.
+    #[deprecated="use items_mut().shrink_to_fit instead"]
     pub fn shrink_to_fit(&mut self) { self.items.shrink_to_fit() }
 
     /// Tries to reserve capacity for at least additional more elements.
@@ -303,11 +439,12 @@ impl<C: Component> Arena<C> {
     ///
     /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
     #[cfg(feature="nightly")]
+    #[deprecated="use items_mut().try_reserve instead"]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve(additional)
     }
 
-    /// Tries to reserve capacity for exactly additional more elements.
+    /// Tries to reserve capacity for exactly `additional` more elements.
     /// The collection may reserve more space to avoid frequent reallocations.
     /// After calling `try_reserve_exact`, capacity will be greater than or equal
     /// to `self.min_capacity() + additional`. Does nothing if capacity is already sufficient.
@@ -320,6 +457,7 @@ impl<C: Component> Arena<C> {
     ///
     /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
     #[cfg(feature="nightly")]
+    #[deprecated="use items_mut().try_reserve_exact instead"]
     pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.items.try_reserve_exact(additional)
     }
@@ -346,11 +484,11 @@ impl<C: Component> Arena<C> {
         let mut guard = 0usize.to_le_bytes();
         self.guard_rng.fill_bytes(&mut guard[..]);
         let guard = NonZeroUsize::new(usize::from_le_bytes(guard)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(42) });
-        if let Some(index) = self.vacancy {
+        if let Some(index) = self.items.vacancy {
             let id = Id { index, guard, phantom: PhantomType::new() };
             let (component, result) = component(id);
             let item = (guard, component);
-            self.vacancy = replace(&mut self.items[index], Right(item)).left()
+            self.items.vacancy = replace(&mut self.items.vec[index], Right(item)).left()
                 .unwrap_or_else(|| unsafe { unreachable_unchecked() });
             result
         } else {
@@ -358,7 +496,7 @@ impl<C: Component> Arena<C> {
             let id = Id { index, guard, phantom: PhantomType::new() };
             let (component, result) = component(id);
             let item = (guard, component);
-            self.items.push(Right(item));
+            self.items.vec.push(Right(item));
             result
         }
     }
@@ -369,17 +507,17 @@ impl<C: Component> Arena<C> {
     /// and panics if such detection hits. But it is important to pay respect to the fact
     /// there is small probability that invalid id will not be intercepted.
     pub fn remove(&mut self, id: Id<C>) -> C {
-        match replace(&mut self.items[id.index], Left(self.vacancy)) {
+        match replace(&mut self.items.vec[id.index], Left(self.items.vacancy)) {
             Left(vacancy) => {
-                self.items[id.index] = Left(vacancy);
+                self.items.vec[id.index] = Left(vacancy);
                 panic!("invalid id");
             },
             Right((guard, component)) => {
                 if guard == id.guard {
-                    self.vacancy = Some(id.index);
+                    self.items.vacancy = Some(id.index);
                     component
                 } else {
-                    self.items[id.index] = Right((guard, component));
+                    self.items.vec[id.index] = Right((guard, component));
                     panic!("invalid id");
                 }
             }
@@ -391,7 +529,7 @@ impl<C: Component> Index<Id<C>> for Arena<C> {
     type Output = C;
 
     fn index(&self, id: Id<C>) -> &C {
-        let &(guard, ref component) = self.items[id.index].as_ref().right().expect("invalid id");
+        let &(guard, ref component) = self.items.vec[id.index].as_ref().right().expect("invalid id");
         if guard != id.guard { panic!("invalid id"); }
         component
     }
@@ -399,7 +537,7 @@ impl<C: Component> Index<Id<C>> for Arena<C> {
 
 impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     fn index_mut(&mut self, id: Id<C>) -> &mut C {
-        let &mut (guard, ref mut component) = self.items[id.index].as_mut().right().expect("invalid id");
+        let &mut (guard, ref mut component) = self.items.vec[id.index].as_mut().right().expect("invalid id");
         if guard != id.guard { panic!("invalid id"); }
         component
     }
@@ -643,7 +781,7 @@ mod test {
         capacity.map_or_else(
             || <Arena::<Test>>::new(),
             |capacity| <Arena::<Test>>::with_capacity(capacity)
-        ).min_capacity() == 0
+        ).items().min_capacity() == 0
     }
 
     #[quickcheck]
