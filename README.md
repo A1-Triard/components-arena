@@ -1,6 +1,6 @@
 # components-arena
 
-Strong-typed arena.
+Strong-typed arena.XXXX
 Simple library for creating complex domain-specific self-referential data structures.
 
 This arena does not use generations approach in a strict sense,
