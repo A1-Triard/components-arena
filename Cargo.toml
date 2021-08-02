@@ -17,6 +17,7 @@ std = ["phantom-type/std"]
 nightly = []
 
 [dependencies]
+components-arena-2 = { package = "components-arena", version = "2.0.0" }
 educe = "0.4.18"
 either = { version = "1.5.3", default-features = false }
 macro-attr-2018 = "1.1.1"
