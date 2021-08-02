@@ -24,6 +24,7 @@ rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
 
 [dev-dependencies]
 macro-attr-2018 = "1.1.1"
+mallocator="0.1.0"
 newtype-derive-2018 = "0.0.3"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"

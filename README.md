@@ -11,7 +11,7 @@ but it uses some similar technique for avoiding the ABA effect.
 ```rust
 use std::mem::replace;
 use macro_attr_2018::macro_attr;
-use components_arena::{Id, Arena, Component, ComponentClassMutex};
+use components_arena::{Id, Arena, Component};
 
 macro_attr! {
     #[derive(Component!)]
@@ -21,8 +21,6 @@ macro_attr! {
     }
 }
 
-static NODE: ComponentClassMutex<Node> = ComponentClassMutex::new();
-
 struct List {
     last: Option<Id<Node>>,
     nodes: Arena<Node>,
@@ -30,7 +28,7 @@ struct List {
 
 impl List {
     fn new() -> Self {
-        List { last: None, nodes: Arena::new(&mut NODE.lock().unwrap()) }
+        List { last: None, nodes: Arena::new() }
     }
 
     fn push(&mut self, data: ()) -> Id<Node> {

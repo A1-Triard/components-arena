@@ -238,17 +238,15 @@ impl<C: Component> Arena<C> {
     ///
     /// ```rust
     /// # use macro_attr_2018::macro_attr;
-    /// # use components_arena::{Component, ComponentClassMutex, Arena};
+    /// # use components_arena::{Component, Arena};
     /// #
     /// # macro_attr! {
     /// #     #[derive(Component!)]
     /// #     struct MyComponent { /* ... */ }
     /// # }
     /// #
-    /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-    /// #
     /// # fn main() {
-    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    /// let mut arena = Arena::new();
     /// assert_eq!(arena.min_capacity(), 0);
     /// let id_1 = arena.insert(|id| (MyComponent { /* ... */ }, id));
     /// assert_eq!(arena.min_capacity(), 1);
@@ -336,17 +334,15 @@ impl<C: Component> Arena<C> {
     ///
     /// ```rust
     /// # use macro_attr_2018::macro_attr;
-    /// # use components_arena::{Component, ComponentClassMutex, Arena};
+    /// # use components_arena::{Component, Arena};
     /// #
     /// # macro_attr! {
     /// #     #[derive(Component!)]
     /// #     struct MyComponent { /* ... */ }
     /// # }
     /// #
-    /// # static MY_COMPONENT: ComponentClassMutex<MyComponent> = ComponentClassMutex::new();
-    /// #
     /// # fn main() {
-    /// let mut arena = Arena::new(&mut MY_COMPONENT.lock().unwrap());
+    /// let mut arena = Arena::new();
     /// let new_component_id = arena.insert(|id| (MyComponent { /* ... */ }, id));
     /// # }
     /// ```
@@ -421,19 +417,17 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 ///
 /// ```rust
 /// # use macro_attr_2018::macro_attr;
-/// # use components_arena::{Component, ComponentClassMutex, Arena};
+/// # use components_arena::{Component, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!)]
 ///     struct Item { /* ... */ }
 /// }
 ///
-/// static ITEM: ComponentClassMutex<Item> = ComponentClassMutex::new();
-///
 /// // ...
 ///
 /// # fn main() {
-/// let mut arena = Arena::new(&mut ITEM.lock().unwrap());
+/// let mut arena = Arena::new();
 /// let id = arena.insert(|id| (Item { /* ... */ }, id));
 /// # }
 /// ```
@@ -442,7 +436,7 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 ///
 /// ```rust
 /// # use macro_attr_2018::macro_attr;
-/// # use components_arena::{Component, ComponentClassMutex, Arena};
+/// # use components_arena::{Component, Arena};
 /// #
 /// macro_attr! {
 ///     #[derive(Component!(class=ItemComponent))]
@@ -451,15 +445,13 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 ///     }
 /// }
 ///
-/// static ITEM: ComponentClassMutex<ItemComponent> = ComponentClassMutex::new();
-///
 /// // ...
 ///
 /// # fn main() {
-/// let mut arena_u8 = Arena::new(&mut ITEM.lock().unwrap());
+/// let mut arena_u8 = Arena::new();
 /// let _ = arena_u8.insert(|id| (Item { context: 7u8 }, id));
 ///
-/// let mut arena_u32 = Arena::new(&mut ITEM.lock().unwrap());
+/// let mut arena_u32 = Arena::new();
 /// let _ = arena_u32.insert(|id| (Item { context: 7u32 }, id));
 /// # }
 /// ```
