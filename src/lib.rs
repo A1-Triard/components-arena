@@ -1,7 +1,5 @@
 //! **Crate features**
 //!
-//! * `"std"`
-//! Enabled by default. Disable to make the library `#![no_std]`.
 //! * `"nightly"`
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
 
@@ -15,14 +13,12 @@
 #![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
 
-#![cfg_attr(not(feature="std"), no_std)]
+#![no_std]
 
 #[cfg(feature="nightly")]
 include!("doc_test_readme.include");
 
 extern crate alloc;
-#[cfg(feature="std")]
-extern crate core;
 
 #[doc(hidden)]
 pub use core::compile_error as std_compile_error;
