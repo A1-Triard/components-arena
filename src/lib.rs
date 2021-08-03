@@ -334,27 +334,35 @@ impl<C: Component> ArenaItems<C> {
         self.vec[index].as_ref().right().map(|(_, item)| item)
     }
 
+    /// Returns an iterator over all item ids.
     pub fn ids(&self) -> ArenaItemsIds<C> {
         ArenaItemsIds(self.vec.iter().enumerate())
     }
 
+    /// Returns an iterator over all items.
     pub fn values(&self) -> ArenaItemsValues<C> {
         ArenaItemsValues(self.vec.iter())
     }
 
+    /// Returns an iterator over all items combined with their ids.
     pub fn iter(&self) -> ArenaItemsIter<C> {
         ArenaItemsIter(self.vec.iter().enumerate())
     }
 
+    /// Transforms the container into an iterator over all items ids.
     pub fn into_ids(self) -> ArenaItemsIntoIds<C> {
         ArenaItemsIntoIds(self.vec.into_iter().enumerate())
     }
 
+    /// Transforms the container into an iterator over all items.
     pub fn into_values(self) -> ArenaItemsIntoValues<C> {
         ArenaItemsIntoValues(self.vec.into_iter())
     }
 }
 
+/// An iterator over all items combined with their ids.
+///
+/// Usually created by the [`ArenaItems::iter`](ArenaItems::iter) method.
 #[derive(Debug, Clone)]
 pub struct ArenaItemsIter<'a, C: Component>(
     iter::Enumerate<slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>>
@@ -394,6 +402,9 @@ impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIter<'a, C> {
 
 impl<'a, C: Component> FusedIterator for ArenaItemsIter<'a, C> { }
 
+/// An iterator over all items ids.
+///
+/// Usually created by the [`ArenaItems::ids`](ArenaItems::ids) method.
 #[derive(Debug, Clone)]
 pub struct ArenaItemsIds<'a, C: Component>(
     iter::Enumerate<slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>>
@@ -431,6 +442,9 @@ impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIds<'a, C> {
 
 impl<'a, C: Component> FusedIterator for ArenaItemsIds<'a, C> { }
 
+/// An iterator over all items.
+///
+/// Usually created by the [`ArenaItems::values`](ArenaItems::values) method.
 #[derive(Debug, Clone)]
 pub struct ArenaItemsValues<'a, C: Component>(
     slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>
@@ -468,6 +482,9 @@ impl<'a, C: Component> DoubleEndedIterator for ArenaItemsValues<'a, C> {
 
 impl<'a, C: Component> FusedIterator for ArenaItemsValues<'a, C> { }
 
+/// An iterator over all items ids.
+///
+/// Usually created by the [`ArenaItems::into_ids`](ArenaItems::into_ids) method.
 #[derive(Debug)]
 pub struct ArenaItemsIntoIds<C: Component>(
     iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
@@ -505,6 +522,9 @@ impl<C: Component> DoubleEndedIterator for ArenaItemsIntoIds<C> {
 
 impl<C: Component> FusedIterator for ArenaItemsIntoIds<C> { }
 
+/// An iterator over all items.
+///
+/// Usually created by the [`ArenaItems::into_values`](ArenaItems::into_values) method.
 #[derive(Debug)]
 pub struct ArenaItemsIntoValues<C: Component>(
     vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>
@@ -542,6 +562,9 @@ impl<C: Component> DoubleEndedIterator for ArenaItemsIntoValues<C> {
 
 impl<C: Component> FusedIterator for ArenaItemsIntoValues<C> { }
 
+/// An iterator over all items combined with their ids.
+///
+/// Usually created by the [`ArenaItems::into_iter`](ArenaItems::into_iter) method.
 #[derive(Debug, Clone)]
 pub struct ArenaItemsIntoIter<C: Component>(
     iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
