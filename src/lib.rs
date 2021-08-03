@@ -29,13 +29,15 @@ pub use generics::parse as generics_parse;
 
 #[cfg(feature="nightly")]
 use alloc::collections::TryReserveError;
-use alloc::vec::Vec;
+use alloc::vec::{self, Vec};
 use core::fmt::Debug;
 use core::hash::Hash;
 use core::hint::unreachable_unchecked;
+use core::iter::{self, FusedIterator};
 use core::mem::replace;
 use core::num::{NonZeroUsize};
 use core::ops::{Index, IndexMut};
+use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use educe::Educe;
 use either::{Either, Left, Right};
@@ -305,12 +307,21 @@ impl<C: Component> ArenaItems<C> {
         self.vec.try_reserve_exact(additional)
     }
 
+    /// Returns item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
+    pub fn get_id_value(&self, index: usize) -> Option<(Id<C>, &C)> {
+        self.vec[index].as_ref().right().map(|(guard, item)| (Id { index, guard: *guard, phantom: PhantomType::new() }, item))
+    }
+
     /// Returns [`Id`](Id) of item occupying `index` place, or `None` if there is no such.
     ///
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
-    pub fn id(&self, index: usize) -> Option<Id<C>> {
+    pub fn get_id(&self, index: usize) -> Option<Id<C>> {
         self.vec[index].as_ref().right().map(|(guard, _)| Id { index, guard: *guard, phantom: PhantomType::new() })
     }
 
@@ -319,9 +330,271 @@ impl<C: Component> ArenaItems<C> {
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
-    pub fn item(&self, index: usize) -> Option<&C> {
+    pub fn get_value(&self, index: usize) -> Option<&C> {
         self.vec[index].as_ref().right().map(|(_, item)| item)
     }
+
+    pub fn ids(&self) -> ArenaItemsIds<C> {
+        ArenaItemsIds(self.vec.iter().enumerate())
+    }
+
+    pub fn values(&self) -> ArenaItemsValues<C> {
+        ArenaItemsValues(self.vec.iter())
+    }
+
+    pub fn iter(&self) -> ArenaItemsIter<C> {
+        ArenaItemsIter(self.vec.iter().enumerate())
+    }
+
+    pub fn into_ids(self) -> ArenaItemsIntoIds<C> {
+        ArenaItemsIntoIds(self.vec.into_iter().enumerate())
+    }
+
+    pub fn into_values(self) -> ArenaItemsIntoValues<C> {
+        ArenaItemsIntoValues(self.vec.into_iter())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ArenaItemsIter<'a, C: Component>(
+    iter::Enumerate<slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>>
+);
+
+impl<'a, C: Component> Iterator for ArenaItemsIter<'a, C> {
+    type Item = (Id<C>, &'a C);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard: *guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIter<'a, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard: *guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+}
+
+impl<'a, C: Component> FusedIterator for ArenaItemsIter<'a, C> { }
+
+#[derive(Debug, Clone)]
+pub struct ArenaItemsIds<'a, C: Component>(
+    iter::Enumerate<slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>>
+);
+
+impl<'a, C: Component> Iterator for ArenaItemsIds<'a, C> {
+    type Item = Id<C>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, _)))) => return Some(Id { index, guard: *guard, phantom: PhantomType::new() }),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIds<'a, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, _)))) => return Some(Id { index, guard: *guard, phantom: PhantomType::new() }),
+            }
+        }
+    }
+}
+
+impl<'a, C: Component> FusedIterator for ArenaItemsIds<'a, C> { }
+
+#[derive(Debug, Clone)]
+pub struct ArenaItemsValues<'a, C: Component>(
+    slice::Iter<'a, Either<Option<usize>, (NonZeroUsize, C)>>
+);
+
+impl<'a, C: Component> Iterator for ArenaItemsValues<'a, C> {
+    type Item = &'a C;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<'a, C: Component> DoubleEndedIterator for ArenaItemsValues<'a, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+}
+
+impl<'a, C: Component> FusedIterator for ArenaItemsValues<'a, C> { }
+
+#[derive(Debug)]
+pub struct ArenaItemsIntoIds<C: Component>(
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
+);
+
+impl<C: Component> Iterator for ArenaItemsIntoIds<C> {
+    type Item = Id<C>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, _)))) => return Some(Id { index, guard, phantom: PhantomType::new() }),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<C: Component> DoubleEndedIterator for ArenaItemsIntoIds<C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, _)))) => return Some(Id { index, guard, phantom: PhantomType::new() }),
+            }
+        }
+    }
+}
+
+impl<C: Component> FusedIterator for ArenaItemsIntoIds<C> { }
+
+#[derive(Debug)]
+pub struct ArenaItemsIntoValues<C: Component>(
+    vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>
+);
+
+impl<C: Component> Iterator for ArenaItemsIntoValues<C> {
+    type Item = C;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<C: Component> DoubleEndedIterator for ArenaItemsIntoValues<C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+}
+
+impl<C: Component> FusedIterator for ArenaItemsIntoValues<C> { }
+
+#[derive(Debug, Clone)]
+pub struct ArenaItemsIntoIter<C: Component>(
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
+);
+
+impl<C: Component> Iterator for ArenaItemsIntoIter<C> {
+    type Item = (Id<C>, C);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<C: Component> DoubleEndedIterator for ArenaItemsIntoIter<C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+}
+
+impl<C: Component> FusedIterator for ArenaItemsIntoIter<C> { }
+
+impl<C: Component> IntoIterator for ArenaItems<C> {
+    type Item = (Id<C>, C);
+    type IntoIter = ArenaItemsIntoIter<C>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ArenaItemsIntoIter(self.vec.into_iter().enumerate())
+    }
+}
+
+impl<'a, C: Component> IntoIterator for &'a ArenaItems<C> {
+    type Item = (Id<C>, &'a C);
+    type IntoIter = ArenaItemsIter<'a, C>;
+
+    fn into_iter(self) -> Self::IntoIter { self.iter() }
 }
 
 /// Unordered container with random access.
