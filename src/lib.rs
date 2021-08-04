@@ -629,7 +629,20 @@ pub struct Arena<C: Component> {
 
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
+    #[cfg(feature="nightly")]
     pub const fn new() -> Self {
+        Arena {
+            guard_rng: None,
+            items: ArenaItems {
+                vec: Vec::new(),
+                vacancy: None
+            }
+        }
+    }
+
+    /// Creates an arena instance.
+    #[cfg(not(feature="nightly"))]
+    pub fn new() -> Self {
         Arena {
             guard_rng: None,
             items: ArenaItems {
