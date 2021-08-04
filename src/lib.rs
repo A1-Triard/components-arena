@@ -623,16 +623,15 @@ impl<'a, C: Component> IntoIterator for &'a ArenaItems<C> {
 /// Unordered container with random access.
 #[derive(Debug)]
 pub struct Arena<C: Component> {
-    guard_rng: SmallRng,
+    guard_rng: Option<SmallRng>,
     items: ArenaItems<C>,
 }
 
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
-    pub fn new() -> Self {
-        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
+    pub const fn new() -> Self {
         Arena {
-            guard_rng: SmallRng::seed_from_u64(seed as u64),
+            guard_rng: None,
             items: ArenaItems {
                 vec: Vec::new(),
                 vacancy: None
@@ -642,14 +641,21 @@ impl<C: Component> Arena<C> {
 
     /// Creates an arena instance with the specified initial capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
         Arena {
-            guard_rng: SmallRng::seed_from_u64(seed as u64),
+            guard_rng: None,
             items: ArenaItems {
                 vec: Vec::with_capacity(capacity),
                 vacancy: None
             }
         }
+    }
+
+    fn guard_rng(&mut self) -> &mut SmallRng {
+        if self.guard_rng.is_none() {
+            let seed = C::Class::token().0.fetch_add(1, Ordering::Relaxed);
+            self.guard_rng = Some(SmallRng::seed_from_u64(seed as u64));
+        }
+        unsafe { self.guard_rng.as_mut().unwrap_or_else(|| unreachable_unchecked()) }
     }
 
     /// Returns reference to contained items packed in a special container.
@@ -778,7 +784,7 @@ impl<C: Component> Arena<C> {
     /// ```
     pub fn insert<T>(&mut self, component: impl FnOnce(Id<C>) -> (C, T)) -> T {
         let mut guard = 0usize.to_le_bytes();
-        self.guard_rng.fill_bytes(&mut guard[..]);
+        self.guard_rng().fill_bytes(&mut guard[..]);
         let guard = NonZeroUsize::new(usize::from_le_bytes(guard)).unwrap_or(unsafe { NonZeroUsize::new_unchecked(42) });
         if let Some(index) = self.items.vacancy {
             let id = Id { index, guard, phantom: PhantomType::new() };
