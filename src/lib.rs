@@ -125,7 +125,7 @@ pub struct Id<C: Component> {
 pub type RawId = (usize, NonZeroUsize);
 
 /// An implementer of the `ComponentId` trait is a type behaves as [`Id`](Id).
-pub trait ComponentId: Debug + Copy + Eq + Ord + Hash {
+pub trait ComponentId: Debug + Copy + Eq + Ord + Hash + Send + Sync {
     /// Forms an id from the [`into_raw`](ComponentId::into_raw) function result.
     fn from_raw(raw: RawId) -> Self;
 
