@@ -10,7 +10,7 @@
 
 #![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(feature="nightly", feature(shrink_to))]
+//#![cfg_attr(feature="nightly", feature(shrink_to))]
 #![cfg_attr(feature="nightly", feature(try_reserve))]
 
 #![no_std]
