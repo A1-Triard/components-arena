@@ -671,6 +671,11 @@ impl<C: Component> Arena<C> {
         unsafe { self.guard_rng.as_mut().unwrap_or_else(|| unreachable_unchecked()) }
     }
 
+    /// Returns contained items packed in a special container.
+    /// While arena itself is unique (i.e. non-clonable) object,
+    /// this special container could be cloned.
+    pub fn into_items(self) -> ArenaItems<C> { self.items }
+
     /// Returns reference to contained items packed in a special container.
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
