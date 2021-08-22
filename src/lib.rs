@@ -4,6 +4,7 @@
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
 
 #![deny(warnings)]
+#![allow(clippy::type_complexity)]
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
@@ -843,6 +844,10 @@ impl<C: Component> Arena<C> {
             }
         }
     }
+}
+
+impl<C: Component> Default for Arena<C> {
+    fn default() -> Self { Arena::new() }
 }
 
 impl<C: Component> Index<Id<C>> for Arena<C> {
