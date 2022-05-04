@@ -81,7 +81,7 @@ jobs:
       run: "rustup component add rust-src --toolchain nightly-${{ matrix.triple }}"
       if: "${{ matrix.triple != '' }}"
     - name: ensure_no_std build
-      run: "cargo +nightly build --verbose -Z build-std=core,panic_abort --target ${{ matrix.triple }} --release"
+      run: "cargo +nightly build --verbose -Z build-std=core,alloc,panic_abort --target ${{ matrix.triple }} --release"
       working-directory: ensure_no_std
       if: "${{ matrix.triple != '' }}"
     - name: ensure_no_std run
