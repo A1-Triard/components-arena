@@ -11,6 +11,8 @@ categories = ["rust-patterns", "no-std"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/A1-Triard/components-arena"
 
+[workspace]
+
 [features]
 default = ["nightly"]
 nightly = []
