@@ -102,6 +102,8 @@ jobs:
       with:
         command: outdated
         args: "--verbose --workspace --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
+    - name: rustup component add clippy
+      run: "rustup component add clippy"
     - name: clippy
       uses: actions-rs/cargo@v1
       with:
