@@ -119,26 +119,10 @@ pub struct Id<C: Component> {
 }
 
 #[cfg(feature="nightly")]
-impl<C: Component> const ComponentId for Id<C> {
-    fn from_raw(raw: RawId) -> Self {
-        Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
-    }
-
-    fn into_raw(self) -> RawId {
-        (self.index, self.guard)
-    }
-}
+include!("impl_id_nightly.rs");
 
 #[cfg(not(feature="nightly"))]
-impl<C: Component> ComponentId for Id<C> {
-    fn from_raw(raw: RawId) -> Self {
-        Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
-    }
-
-    fn into_raw(self) -> RawId {
-        (self.index, self.guard)
-    }
-}
+include!("impl_id_stable.rs");
 
 /// A (mostly readonly) inner container holding [`Arena`](Arena) items.
 /// While [`Arena`](Arena) itself is unique (i.e. non-clonable) object,
