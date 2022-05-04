@@ -101,5 +101,6 @@ pub fn main(_argc: isize, _argv: *const *const u8) -> isize {
     let tree = &mut WidgetTree::new();
     let widget = Widget::new(tree, tree.root());
     assert_eq!(widget.parent(tree), Some(tree.root()));
+    widget.drop(tree);
     0
 }
