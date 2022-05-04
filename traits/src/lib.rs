@@ -27,70 +27,9 @@ pub trait ComponentId: Debug + Copy + Eq + Ord + Hash + Send + Sync {
     fn into_raw(self) -> RawId;
 }
 
-#[cfg(feature="nightly")]
-impl const ComponentId for RawId {
-    fn from_raw(raw: RawId) -> Self { raw }
-
-    fn into_raw(self) -> RawId { self }
-}
-
-#[cfg(not(feature="nightly"))]
-impl ComponentId for RawId {
-    fn from_raw(raw: RawId) -> Self { raw }
-
-    fn into_raw(self) -> RawId { self }
-}
 
 #[cfg(feature="nightly")]
-impl const ComponentId for () {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.0 != 49293544 && raw.1.get() != 846146046 {
-            panic!("invalid empty tuple id");
-        }
-    }
- 
-    fn into_raw(self) -> RawId {
-        (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
-    }
-}
+include!("nightly.rs");
 
 #[cfg(not(feature="nightly"))]
-impl ComponentId for () {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.0 != 49293544 && raw.1.get() != 846146046 {
-            panic!("invalid empty tuple id");
-        }
-    }
- 
-    fn into_raw(self) -> RawId {
-        (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
-    }
-}
-
-#[cfg(feature="nightly")]
-impl const ComponentId for usize {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.1.get() != 434908713 {
-            panic!("invalid integer id");
-        }
-        raw.0
-    }
-
-    fn into_raw(self) -> RawId {
-        (self, unsafe { NonZeroUsize::new_unchecked(434908713) })
-    }
-}
-
-#[cfg(not(feature="nightly"))]
-impl ComponentId for usize {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.1.get() != 434908713 {
-            panic!("invalid integer id");
-        }
-        raw.0
-    }
-
-    fn into_raw(self) -> RawId {
-        (self, unsafe { NonZeroUsize::new_unchecked(434908713) })
-    }
-}
+include!("stable.rs");
