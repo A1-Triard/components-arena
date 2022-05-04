@@ -36,6 +36,10 @@ jobs:
         toolchain: ${{ matrix.rust }}
         override: true
     - uses: actions/checkout@v2
+    - name: detach from workspace
+      uses: JesseTG/rm@v1.0.2
+      with:
+        path: Cargo.toml
     - name: build
       run: "cargo build --verbose --no-default-features ${{ matrix.features }}"
       working-directory: traits

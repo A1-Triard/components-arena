@@ -2,7 +2,7 @@
 edition = "2021"
 name = "components-arena"
 version = "3.0.0"
-rust-version = "1.61"
+rust-version = "1.60"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Simple library for creating complex domain-specific self-referential data structures."
 readme = "README.md"
