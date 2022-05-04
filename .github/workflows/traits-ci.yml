@@ -37,26 +37,14 @@ jobs:
         override: true
     - uses: actions/checkout@v2
     - name: build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: "--verbose --no-default-features ${{ matrix.features }}"
+      run: "cargo build --verbose --no-default-features ${{ matrix.features }}"
       working-directory: traits
     - name: test --doc
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: "--verbose --doc --no-default-features ${{ matrix.features }}"
+      run: "cargo test --verbose --doc --no-default-features ${{ matrix.features }}"
       working-directory: traits
     - name: doc
-      uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: "--verbose --no-default-features ${{ matrix.features }}"
+      run: "cargo doc --verbose --no-default-features ${{ matrix.features }}"
       working-directory: traits
     - name: build --release
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: "--verbose --release --no-default-features ${{ matrix.features }}"
+      run: "cargo build --verbose --release --no-default-features ${{ matrix.features }}"
       working-directory: traits
