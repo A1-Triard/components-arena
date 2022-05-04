@@ -9,10 +9,8 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 
-#![cfg_attr(feature="nightly", feature(const_fn_trait_bound))]
 //#![cfg_attr(feature="nightly", feature(const_trait_impl))]
 //#![cfg_attr(feature="nightly", feature(shrink_to))]
-#![cfg_attr(feature="nightly", feature(try_reserve))]
 
 #![no_std]
 
@@ -32,7 +30,6 @@ pub use generics::parse as generics_parse;
 use alloc::collections::TryReserveError;
 use alloc::vec::{self, Vec};
 use core::fmt::Debug;
-use core::hash::Hash;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
 use core::mem::replace;
@@ -45,6 +42,8 @@ use either::{Either, Left, Right};
 use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
+
+pub use components_arena_traits::*;
 
 /// [Component class](ComponentClass) static shared data.
 /// The return type of the [`ComponentClass::token`](ComponentClass::token) function.
@@ -122,27 +121,6 @@ pub struct Id<C: Component> {
     phantom: PhantomType<C>
 }
 
-/// Non-generic, FFI-friendly [`ComponentId`](trait@ComponentId) representaion.
-pub type RawId = (usize, NonZeroUsize);
-
-/// An implementer of the `ComponentId` trait is a type behaves as [`Id`](Id).
-pub trait ComponentId: Debug + Copy + Eq + Ord + Hash + Send + Sync {
-    /// Forms an id from the [`into_raw`](ComponentId::into_raw) function result.
-    fn from_raw(raw: RawId) -> Self;
-
-    /// Transforms the id to primitive-typed parts, which can be easily passed through FFI
-    /// and stored in non-generic context.
-    ///
-    /// Use [`from_raw`](ComponentId::from_raw) to get the source id back.
-    fn into_raw(self) -> RawId;
-}
-
-impl /*const*/ ComponentId for RawId {
-    fn from_raw(raw: RawId) -> Self { raw }
-
-    fn into_raw(self) -> RawId { self }
-}
-
 impl<C: Component> /*const*/ ComponentId for Id<C> {
     fn from_raw(raw: RawId) -> Self {
         Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
@@ -150,31 +128,6 @@ impl<C: Component> /*const*/ ComponentId for Id<C> {
 
     fn into_raw(self) -> RawId {
         (self.index, self.guard)
-    }
-}
-
-impl /*const*/ ComponentId for () {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.0 != 49293544 && raw.1.get() != 846146046 {
-            panic!("invalid empty tuple id");
-        }
-    }
- 
-    fn into_raw(self) -> RawId {
-        (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
-    }
-}
-
-impl /*const*/ ComponentId for usize {
-    fn from_raw(raw: RawId) -> Self {
-        if raw.1.get() != 434908713 {
-            panic!("invalid integer id");
-        }
-        raw.0
-    }
-
-    fn into_raw(self) -> RawId {
-        (self, unsafe { NonZeroUsize::new_unchecked(434908713) })
     }
 }
 
