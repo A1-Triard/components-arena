@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+name = "ensure_no_std"
+version = "0.0.0"
+publish = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[dependencies]
+libc_alloc = "1.0.3"
+components-arena = { path = ".." }
+
+[target.'cfg(not(windows))'.dependencies]
+libc = { version = "0.2", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.9", features = ["processthreadsapi"] }

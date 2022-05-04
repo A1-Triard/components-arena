@@ -1,10 +1,12 @@
-name: master
+name: CI
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  schedule:
+  - cron: '0 0 * * *'
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,25 +17,41 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        rust: [stable, beta, nightly]
+        rust: [stable, beta]
         features: [""]
+        triple: [""]
         include:
         - os: ubuntu-latest
           rust: nightly
           features: "--features=nightly"
+          triple: x86_64-unknown-linux-gnu
         - os: windows-latest
           rust: nightly
           features: "--features=nightly"
+          triple: x86_64-pc-windows-msvc
         - os: macOS-latest
           rust: nightly
           features: "--features=nightly"
+          triple: x86_64-apple-darwin
+        - os: ubuntu-latest
+          rust: nightly
+          features: ""
+          triple: x86_64-unknown-linux-gnu
+        - os: windows-latest
+          rust: nightly
+          features: ""
+          triple: x86_64-pc-windows-msvc
+        - os: macOS-latest
+          rust: nightly
+          features: ""
+          triple: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         override: true
+    - uses: actions/checkout@v2
     - name: build
       uses: actions-rs/cargo@v1
       with:
@@ -62,13 +80,28 @@ jobs:
       with:
         command: build
         args: "--verbose --release --no-default-features ${{ matrix.features }}"
-    - name: test --example widget_tree
+    - name: rustup component add rust-src
+      run: "rustup component add rust-src --toolchain nightly-${{ matrix.triple }}"
+      if: "${{ matrix.triple != '' }}"
+    - name: ensure_no_std build
+      run: "cargo +nightly build --verbose -Z build-std=core,panic_abort --target ${{ matrix.triple }} --release"
+      working-directory: ensure_no_std
+      if: "${{ matrix.triple != '' }}"
+    - name: ensure_no_std run
+      run: "./ensure_no_std/target/${{ matrix.triple }}/release/ensure_no_std"
+      if: "${{ matrix.triple != '' }}"
+    - name: run --example widget_tree
       uses: actions-rs/cargo@v1
       with:
-        command: test
+        command: run
         args: "--verbose --example widget_tree --no-default-features ${{ matrix.features }}"
-    - name: test --example widget_tree_generic
+    - name: run --example widget_tree_generic
       uses: actions-rs/cargo@v1
       with:
-        command: test
+        command: run
         args: "--verbose --example widget_tree_generic --no-default-features ${{ matrix.features }}"
+    - name: outdated
+      uses: actions-rs/cargo@v1
+      with:
+        command: outdated
+        args: "--verbose --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
