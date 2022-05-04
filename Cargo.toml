@@ -12,11 +12,20 @@ categories = ["rust-patterns", "no-std"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/A1-Triard/components-arena"
 
+[workspace]
+members = [
+    "traits",
+]
+exclude = [
+    "ensure_no_std",
+]
+
 [features]
 default = ["nightly"]
-nightly = []
+nightly = ["components-arena-traits/nightly"]
 
 [dependencies]
+components-arena-traits = { path = "traits", version = "1.0.0" }
 educe = "0.4.18"
 either = { version = "1.6.1", default-features = false }
 generics = "0.3.2"

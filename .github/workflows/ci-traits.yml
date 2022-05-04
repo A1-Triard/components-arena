@@ -1,0 +1,62 @@
+name: CI (traits)
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+  - cron: '0 0 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        rust: ["1.44", stable, beta, nightly]
+        features: [""]
+        include:
+        - os: ubuntu-latest
+          rust: nightly
+          features: "--features=nightly"
+        - os: windows-latest
+          rust: nightly
+          features: "--features=nightly"
+        - os: macOS-latest
+          rust: nightly
+          features: "--features=nightly"
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        override: true
+    - uses: actions/checkout@v2
+    - name: build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: "--verbose --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - name: test --doc
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: "--verbose --doc --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - name: doc
+      uses: actions-rs/cargo@v1
+      with:
+        command: doc
+        args: "--verbose --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - name: build --release
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: "--verbose --release --no-default-features ${{ matrix.features }}"
+      working-directory: traits
