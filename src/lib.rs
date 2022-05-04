@@ -302,7 +302,7 @@ impl<C: Component> ArenaItems<C> {
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
-    /// Prefer [`reserve`](Arena::reserve) if future insertions are expected.
+    /// Prefer [`reserve`](ArenaItems::reserve) if future insertions are expected.
     ///
     /// # Panics
     ///
@@ -311,13 +311,13 @@ impl<C: Component> ArenaItems<C> {
 
     /// Shrinks the capacity of the arena with a lower bound.
     ///
-    /// The capacity will remain at least as large as both the [`min_capacity`](Arena::min_capacity)
+    /// The capacity will remain at least as large as both the [`min_capacity`](ArenaItems::min_capacity)
     /// and the supplied value.
     pub fn shrink_to(&mut self, min_capacity: usize) { self.vec.shrink_to(min_capacity) }
 
     /// Shrinks the capacity of the vector as much as possible.
     ///
-    /// It will drop down as close as possible to the [`min_capacity`](Arena::min_capacity)
+    /// It will drop down as close as possible to the [`min_capacity`](ArenaItems::min_capacity)
     /// but the allocator may still inform the arena that there is space for a few more elements.
     pub fn shrink_to_fit(&mut self) { self.vec.shrink_to_fit() }
 
@@ -340,7 +340,7 @@ impl<C: Component> ArenaItems<C> {
     ///
     /// Note that the allocator may give the collection more space than it requests.
     /// Therefore, capacity can not be relied upon to be precisely minimal.
-    /// Prefer [`try_reserve`](Arena::try_reserve) if future insertions are expected.
+    /// Prefer [`try_reserve`](ArenaItems::try_reserve) if future insertions are expected.
     ///
     /// # Errors
     ///

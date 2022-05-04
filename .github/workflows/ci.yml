@@ -102,3 +102,8 @@ jobs:
       with:
         command: outdated
         args: "--verbose --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
+    - name: clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: "--verbose ${{ matrix.features }}"
