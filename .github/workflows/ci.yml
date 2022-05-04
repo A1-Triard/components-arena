@@ -108,4 +108,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: "--verbose --workspace ${{ matrix.features }}"
+        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
