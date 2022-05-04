@@ -91,12 +91,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: run
-        args: "--verbose --workspace --example widget_tree --no-default-features ${{ matrix.features }}"
+        args: "--verbose --example widget_tree --no-default-features ${{ matrix.features }}"
     - name: run --example widget_tree_generic
       uses: actions-rs/cargo@v1
       with:
         command: run
-        args: "--verbose --workspace --example widget_tree_generic --no-default-features ${{ matrix.features }}"
+        args: "--verbose --example widget_tree_generic --no-default-features ${{ matrix.features }}"
     - name: outdated
       uses: actions-rs/cargo@v1
       with:
