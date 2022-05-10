@@ -13,7 +13,7 @@ panic = "abort"
 [dependencies]
 components-arena = { path = ".." }
 libc_alloc = "1.0.3"
-macro-attr-2018 = "1.1.1"
+macro-attr-2018 = "2.0.1"
 
 [target.'cfg(not(windows))'.dependencies]
 libc = { version = "0.2", default-features = false }

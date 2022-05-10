@@ -33,6 +33,6 @@ phantom-type = { version = "0.4.1", default-features = false }
 rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
 
 [dev-dependencies]
-macro-attr-2018 = "1.1.1"
+macro-attr-2018 = "2.0.1"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
