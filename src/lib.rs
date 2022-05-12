@@ -107,7 +107,7 @@ pub trait ComponentClass {
 ///
 /// Normally, the implementation of this trait is derived
 /// using the [`Component!`](Component!) macro.
-pub trait Component: 'static {
+pub trait Component {
     /// Component class.
     ///
     /// Normally it is `Self` for non-generic types, and
