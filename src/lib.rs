@@ -22,6 +22,8 @@ pub use core::compile_error as std_compile_error;
 #[doc(hidden)]
 pub use core::default::Default as std_default_Default;
 #[doc(hidden)]
+pub use core::option::Option as std_option_Option;
+#[doc(hidden)]
 pub use generics::parse as generics_parse;
 
 use alloc::collections::TryReserveError;
@@ -34,6 +36,10 @@ use core::num::{NonZeroUsize};
 use core::ops::{Index, IndexMut};
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
+#[cfg(feature="dyn-context")]
+use dyn_context::impl_stop;
+#[cfg(feature="dyn-context")]
+use dyn_context::state::State;
 use educe::Educe;
 use either::{Either, Left, Right};
 use phantom_type::PhantomType;
@@ -101,12 +107,15 @@ pub trait ComponentClass {
 ///
 /// Normally, the implementation of this trait is derived
 /// using the [`Component!`](Component!) macro.
-pub trait Component {
+pub trait Component: 'static {
     /// Component class.
     ///
     /// Normally it is `Self` for non-generic types, and
     /// non-generic synthetic uninhabited type for generic ones.
     type Class: ComponentClass;
+
+    #[cfg(feature="dyn-context")]
+    fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> { None }
 }
 
 /// [`Arena`](Arena) item handle.
@@ -134,6 +143,26 @@ pub struct ArenaItems<C: Component> {
 }
 
 impl<C: Component> ArenaItems<C> {
+    #[cfg(feature="dyn-context")]
+    fn clear(&mut self) {
+        self.vacancy = None;
+        self.vec.clear();
+    }
+
+    const fn new() -> Self {
+        ArenaItems {
+            vec: Vec::new(),
+            vacancy: None
+        }
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        ArenaItems {
+            vec: Vec::with_capacity(capacity),
+            vacancy: None
+        }
+    }
+
     /// Returns the number of elements the arena can hold without reallocating.
     pub fn capacity(&self) -> usize { self.vec.capacity() }
 
@@ -576,10 +605,7 @@ impl<C: Component> Arena<C> {
     pub const fn new() -> Self {
         Arena {
             guard_rng: None,
-            items: ArenaItems {
-                vec: Vec::new(),
-                vacancy: None
-            }
+            items: ArenaItems::new()
         }
     }
 
@@ -587,10 +613,7 @@ impl<C: Component> Arena<C> {
     pub fn with_capacity(capacity: usize) -> Self {
         Arena {
             guard_rng: None,
-            items: ArenaItems {
-                vec: Vec::with_capacity(capacity),
-                vacancy: None
-            }
+            items: ArenaItems::with_capacity(capacity)
         }
     }
 
@@ -605,7 +628,7 @@ impl<C: Component> Arena<C> {
     /// Returns contained items packed in a special container.
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
-    pub fn into_items(self) -> ArenaItems<C> { self.items }
+    pub fn into_items(mut self) -> ArenaItems<C> { replace(&mut self.items, ArenaItems::new()) }
 
     /// Returns reference to contained items packed in a special container.
     /// While arena itself is unique (i.e. non-clonable) object,
@@ -702,6 +725,32 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
         component
     }
 }
+
+#[cfg(feature="dyn-context")]
+pub trait ComponentStop {
+    type Component: Component;
+
+    fn get(&self, state: &dyn State) -> &Arena<Self::Component>;
+    fn get_mut(&self, state: &mut dyn State) -> &mut Arena<Self::Component>;
+    fn stop(&self, state: &mut dyn State, id: Id<Self::Component>);
+}
+
+#[cfg(feature="dyn-context")]
+impl_stop!(<C: Component> for Arena<C> {
+    fn is_stopped(&self) -> bool { self.items.is_empty() || C::as_component_stop().is_none() }
+
+    fn stop(state: &mut dyn State) {
+        if let Some(component_stop) = C::as_component_stop() {
+            let arena = component_stop.get(state);
+            let ids = arena.items().ids().collect::<Vec<_>>();
+            for id in ids {
+                component_stop.stop(state, id);
+            }
+            let arena = component_stop.get_mut(state);
+            arena.items.clear();
+        }
+    }
+});
 
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
 ///

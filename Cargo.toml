@@ -22,7 +22,7 @@ exclude = [
 
 [features]
 default = ["nightly"]
-nightly = ["components-arena-traits/nightly"]
+nightly = ["components-arena-traits/nightly", "dyn-context?/nightly"]
 
 [dependencies]
 components-arena-traits = { path = "traits", version = "1.0.0", default-features = false }
@@ -31,6 +31,7 @@ either = { version = "1.6.1", default-features = false }
 generics = "0.4.0"
 phantom-type = { version = "0.4.1", default-features = false }
 rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
+dyn-context = { version = "0.14.0", default-features = false, optional = true }
 
 [dev-dependencies]
 macro-attr-2018 = "2.0.1"
