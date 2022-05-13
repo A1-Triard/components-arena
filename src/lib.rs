@@ -23,6 +23,12 @@ pub use core::compile_error as std_compile_error;
 pub use core::default::Default as std_default_Default;
 #[doc(hidden)]
 pub use core::option::Option as std_option_Option;
+#[cfg(feature="dyn-context")]
+#[doc(hidden)]
+pub use dyn_context::state::State as dyn_context_state_State;
+#[cfg(feature="dyn-context")]
+#[doc(hidden)]
+pub use dyn_context::state::StateExt as dyn_context_state_StateExt;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
 
@@ -1084,6 +1090,21 @@ macro_rules! NewtypeComponentId_impl {
     };
 }
 
+#[macro_export]
+macro_rules! arena_newtype {
+    (
+        $arena_newtype:ty
+    ) => {
+        fn get<'a>(&self, state: &'a dyn $crate::dyn_context_state_State) -> &'a $crate::Arena<Self::Component> {
+            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$arena_newtype>(state).0
+        }
+
+        fn get_mut<'a>(&self, state: &'a mut dyn $crate::dyn_context_state_State) -> &'a mut $crate::Arena<Self::Component> {
+            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$arena_newtype>(state).0
+        }
+    };
+}
+
 #[cfg(test)]
 mod test {
     use macro_attr_2018::macro_attr;
@@ -1185,9 +1206,14 @@ mod test {
 #[cfg(all(test, feature="dyn-context"))]
 mod test_dyn_context {
     use dyn_context::NewtypeStop;
-    use dyn_context::state::{State, StateExt};
+    use dyn_context::state::State;
     use macro_attr_2018::macro_attr;
     use crate::*;
+
+    macro_attr! {
+        #[derive(NewtypeStop!)]
+        struct TestStopArena(Arena<TestStop>);
+    }
 
     macro_attr! {
         #[derive(Component!(stop=TestStopImpl))]
@@ -1196,19 +1222,8 @@ mod test_dyn_context {
         }
     }
 
-    macro_attr! {
-        #[derive(NewtypeStop!)]
-        struct TestStopArena(Arena<TestStop>);
-    }
-
     impl ComponentStop for TestStopImpl {
-        fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component> {
-            &state.get::<TestStopArena>().0
-        }
-
-        fn get_mut<'a>(&self, state: &'a mut dyn State) -> &'a mut Arena<Self::Component> {
-            &mut state.get_mut::<TestStopArena>().0
-        }
+        arena_newtype!(TestStopArena);
 
         fn stop(&self, state: &mut dyn State, id: Id<Self::Component>) {
             self.get_mut(state)[id].stop = true;
