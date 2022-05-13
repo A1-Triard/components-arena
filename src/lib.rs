@@ -1095,11 +1095,17 @@ macro_rules! arena_newtype {
     (
         $arena_newtype:ty
     ) => {
-        fn get<'a>(&self, state: &'a dyn $crate::dyn_context_state_State) -> &'a $crate::Arena<Self::Component> {
+        fn get<'a>(
+            &self,
+            state: &'a dyn $crate::dyn_context_state_State
+        ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
             &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$arena_newtype>(state).0
         }
 
-        fn get_mut<'a>(&self, state: &'a mut dyn $crate::dyn_context_state_State) -> &'a mut $crate::Arena<Self::Component> {
+        fn get_mut<'a>(
+            &self,
+            state: &'a mut dyn $crate::dyn_context_state_State
+        ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
             &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$arena_newtype>(state).0
         }
     };
