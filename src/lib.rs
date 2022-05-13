@@ -726,10 +726,12 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     }
 }
 
-#[cfg(feature="dyn-context")]
-pub trait ComponentStop {
+pub trait ComponentAspect {
     type Component: Component;
+}
 
+#[cfg(feature="dyn-context")]
+pub trait ComponentStop: ComponentAspect {
     fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component>;
     fn get_mut<'a>(&self, state: &'a mut dyn State) -> &'a mut Arena<Self::Component>;
     fn stop(&self, state: &mut dyn State, id: Id<Self::Component>);
@@ -934,7 +936,7 @@ macro_rules! Component_impl {
     (
         @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [] [] [] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($stop)?] [] [] [] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] [] [] [])?] [] [] [] }
     };
     (
         @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
@@ -945,9 +947,9 @@ macro_rules! Component_impl {
         ");
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] $g:tt $r:tt $w:tt $($body:tt)*
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($stop)?] [$($g)+] [$($r)+] [$($w)*] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] $g $r $w)?] $g $r $w }
     };
     (
         @self [$name:ident] [$($stop:ident)?]
@@ -959,7 +961,13 @@ macro_rules! Component_impl {
             }
         }
 
-        $(struct $stop;)?
+        $(
+            struct $stop;
+
+            impl $crate::ComponentAspect for $stop {
+                type Component = $name;
+            }
+        )?
 
         impl $crate::Component for $name {
             type Class = Self;
@@ -973,7 +981,10 @@ macro_rules! Component_impl {
         }
     };
     (
-        @class [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        @class
+        [$vis:vis] [$name:ident] [$class:ident]
+        [$([$stop:ident] [$($g_:tt)*] [$($r_:tt)*] [$($w_:tt)*])?]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $vis enum $class { }
 
@@ -984,7 +995,13 @@ macro_rules! Component_impl {
             }
         }
 
-        $(struct $stop;)?
+        $(
+            struct $stop;
+
+            impl $($g_)* $crate::ComponentAspect for $stop $($w_)* {
+                type Component = $name $($r_)*;
+            }
+        )?
 
         impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
@@ -1185,8 +1202,6 @@ mod test_dyn_context {
     }
 
     impl ComponentStop for TestStopImpl {
-        type Component = TestStop;
-
         fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component> {
             &state.get::<TestStopArena>().0
         }
