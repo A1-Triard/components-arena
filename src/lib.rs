@@ -979,9 +979,9 @@ macro_rules! Component_impl {
             type Class = Self;
 
             $(
-                fn as_component_stop() -> Option<&'static dyn $crate::ComponentStop<Component=Self>> {
+                fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
                     const COMPONENT_STOP: $stop = $stop;
-                    Some(&COMPONENT_STOP)
+                    $crate::std_option_Option::Some(&COMPONENT_STOP)
                 }
             )?
         }
@@ -1013,9 +1013,9 @@ macro_rules! Component_impl {
             type Class = $class;
 
             $(
-                fn as_component_stop() -> Option<&'static dyn $crate::ComponentStop<Component=Self>> {
+                fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
                     const COMPONENT_STOP: $stop = $stop;
-                    Some(&COMPONENT_STOP)
+                    $crate::std_option_Option::Some(&COMPONENT_STOP)
                 }
             )?
         }
