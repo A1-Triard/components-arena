@@ -16,7 +16,7 @@ mod widget_tree {
         }
     }
 
-    pub struct WidgetTree<T> {
+    pub struct WidgetTree<T: 'static> {
         arena: Arena<WidgetNode<T>>,
         root: Id<WidgetNode<T>>,
     }

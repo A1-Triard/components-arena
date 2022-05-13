@@ -595,7 +595,7 @@ impl<'a, C: Component> IntoIterator for &'a ArenaItems<C> {
 
 /// Unordered container with random access.
 #[derive(Debug)]
-pub struct Arena<C: Component> {
+pub struct Arena<C: Component + 'static> {
     guard_rng: Option<SmallRng>,
     items: ArenaItems<C>,
 }
@@ -730,13 +730,13 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
 pub trait ComponentStop {
     type Component: Component;
 
-    fn get(&self, state: &dyn State) -> &Arena<Self::Component>;
-    fn get_mut(&self, state: &mut dyn State) -> &mut Arena<Self::Component>;
+    fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component>;
+    fn get_mut<'a>(&self, state: &'a mut dyn State) -> &'a mut Arena<Self::Component>;
     fn stop(&self, state: &mut dyn State, id: Id<Self::Component>);
 }
 
 #[cfg(feature="dyn-context")]
-impl_stop!(<C: Component> for Arena<C> {
+impl_stop!(<C: Component + 'static> for Arena<C> {
     fn is_stopped(&self) -> bool { self.items.is_empty() || C::as_component_stop().is_none() }
 
     fn stop(state: &mut dyn State) {
@@ -801,25 +801,121 @@ impl_stop!(<C: Component> for Arena<C> {
 #[macro_export]
 macro_rules! Component {
     (
-        ($(class=$class:ident)?)
+        ()
         $vis:vis enum $name:ident
         $($body:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$($class)?]
+                @impl [$vis] [$name] [] []
             }
             $($body)*
         }
     };
     (
-        ($(class=$class:ident)?)
+        (class=$class:ident)
+        $vis:vis enum $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] []
+            }
+            $($body)*
+        }
+    };
+    (
+        (stop=$stop:ident)
+        $vis:vis enum $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [] [$stop]
+            }
+            $($body)*
+        }
+    };
+    (
+        (class=$class:ident, stop=$stop:ident)
+        $vis:vis enum $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] [$stop]
+            }
+            $($body)*
+        }
+    };
+    (
+        (stop=$stop:ident, class=$class:ident)
+        $vis:vis enum $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] [$stop]
+            }
+            $($body)*
+        }
+    };
+    (
+        ()
         $vis:vis struct $name:ident
         $($body:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$($class)?]
+                @impl [$vis] [$name] [] []
+            }
+            $($body)*
+        }
+    };
+    (
+        (class=$class:ident)
+        $vis:vis struct $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] []
+            }
+            $($body)*
+        }
+    };
+    (
+        (stop=$stop:ident)
+        $vis:vis struct $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [] [$stop]
+            }
+            $($body)*
+        }
+    };
+    (
+        (class=$class:ident, stop=$stop:ident)
+        $vis:vis struct $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] [$stop]
+            }
+            $($body)*
+        }
+    };
+    (
+        (stop=$stop:ident, class=$class:ident)
+        $vis:vis struct $name:ident
+        $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Component_impl {
+                @impl [$vis] [$name] [$class] [$stop]
             }
             $($body)*
         }
@@ -831,17 +927,17 @@ macro_rules! Component {
 #[macro_export]
 macro_rules! Component_impl {
     (
-        @impl [$vis:vis] [$name:ident] [] [] [] [] $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [] [] [] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @self [$name] }
+        $crate::Component_impl! { @self [$name] [$($stop)?] }
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [] [] [] $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [] [] [] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [] [] [] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($stop)?] [] [] [] }
     };
     (
-        @impl [$vis:vis] [$name:ident] [] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::std_compile_error!("\
             generic component requires separate non-generic component class; \
@@ -849,12 +945,12 @@ macro_rules! Component_impl {
         ");
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($g)+] [$($r)+] [$($w)*] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($stop)?] [$($g)+] [$($r)+] [$($w)*] }
     };
     (
-        @self [$name:ident]
+        @self [$name:ident] [$($stop:ident)?]
     ) => {
         impl $crate::ComponentClass for $name {
             fn token() -> &'static $crate::ComponentClassToken {
@@ -862,22 +958,43 @@ macro_rules! Component_impl {
                 &TOKEN
             }
         }
+
+        $(struct $stop;)?
+
         impl $crate::Component for $name {
             type Class = Self;
+
+            $(
+                fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> {
+                    const COMPONENT_STOP: $stop = $stop;
+                    Some(&COMPONENT_STOP)
+                }
+            )?
         }
     };
     (
-        @class [$vis:vis] [$name:ident] [$class:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        @class [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $vis enum $class { }
+
         impl $crate::ComponentClass for $class {
             fn token() -> &'static $crate::ComponentClassToken {
                 static TOKEN: $crate::ComponentClassToken = $crate::ComponentClassToken::new();
                 &TOKEN
             }
         }
+
+        $(struct $stop;)?
+
         impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
+
+            $(
+                fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> {
+                    const COMPONENT_STOP: $stop = $stop;
+                    Some(&COMPONENT_STOP)
+                }
+            )?
         }
     };
 }
@@ -1045,5 +1162,41 @@ mod test {
         #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap4<X, Y: Copy>((), PhantomType<X>, PhantomType<Y>);
+    }
+}
+
+#[cfg(all(test, feature="dyn-context"))]
+mod test_dyn_context {
+    use dyn_context::NewtypeStop;
+    use dyn_context::state::{State, StateExt};
+    use macro_attr_2018::macro_attr;
+    use crate::*;
+
+    macro_attr! {
+        #[derive(Component!(stop=TestStopImpl))]
+        struct TestStop {
+            stop: bool
+        }
+    }
+
+    macro_attr! {
+        #[derive(NewtypeStop!)]
+        struct TestStopArena(Arena<TestStop>);
+    }
+
+    impl ComponentStop for TestStopImpl {
+        type Component = TestStop;
+
+        fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component> {
+            &state.get::<TestStopArena>().0
+        }
+
+        fn get_mut<'a>(&self, state: &'a mut dyn State) -> &'a mut Arena<Self::Component> {
+            &mut state.get_mut::<TestStopArena>().0
+        }
+
+        fn stop(&self, state: &mut dyn State, id: Id<Self::Component>) {
+            self.get_mut(state)[id].stop = true;
+        }
     }
 }
