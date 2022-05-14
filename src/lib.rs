@@ -1091,22 +1091,39 @@ macro_rules! NewtypeComponentId_impl {
 }
 
 #[macro_export]
-macro_rules! with_arena_newtype {
+macro_rules! with_arena_in_state_part {
     (
-        $with_arena_newtype:ty
+        $StatePart:ty
     ) => {
         fn get<'a>(
             &self,
             state: &'a dyn $crate::dyn_context_state_State
         ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$with_arena_newtype>(state).0
+            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$StatePart>(state).0
         }
 
         fn get_mut<'a>(
             &self,
             state: &'a mut dyn $crate::dyn_context_state_State
         ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$with_arena_newtype>(state).0
+            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$StatePart>(state).0
+        }
+    };
+    (
+        $StatePart:ty { . $field:ident }
+    ) => {
+        fn get<'a>(
+            &self,
+            state: &'a dyn $crate::dyn_context_state_State
+        ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
+            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$StatePart>(state). $field
+        }
+
+        fn get_mut<'a>(
+            &self,
+            state: &'a mut dyn $crate::dyn_context_state_State
+        ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
+            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$StatePart>(state). $field
         }
     };
 }
