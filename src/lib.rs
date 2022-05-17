@@ -43,7 +43,7 @@ use core::ops::{Index, IndexMut};
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature="dyn-context")]
-use dyn_context::impl_stop;
+use dyn_context::impl_stop_and_drop;
 #[cfg(feature="dyn-context")]
 use dyn_context::state::State;
 use educe::Educe;
@@ -744,7 +744,7 @@ pub trait ComponentStop: ComponentAspect {
 }
 
 #[cfg(feature="dyn-context")]
-impl_stop!(<C: Component + 'static> for Arena<C> {
+impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
     fn is_stopped(&self) -> bool { self.items.is_empty() || C::as_component_stop().is_none() }
 
     fn stop(state: &mut dyn State) {
@@ -1228,15 +1228,15 @@ mod test {
 
 #[cfg(all(test, feature="dyn-context"))]
 mod test_dyn_context {
-    use dyn_context::NewtypeStop;
+    use dyn_context::Stop;
     use dyn_context::state::State;
     use macro_attr_2018::macro_attr;
     use crate::*;
 
-    macro_attr! {
-        #[derive(NewtypeStop!)]
-        struct TestStopArena(Arena<TestStop>);
-    }
+    #[derive(Stop)]
+    struct TestStopArena(Arena<TestStop>);
+
+    impl SelfState for TestStopArena { }
 
     macro_attr! {
         #[derive(Component!(stop=TestStopImpl))]
@@ -1246,7 +1246,7 @@ mod test_dyn_context {
     }
 
     impl ComponentStop for TestStopImpl {
-        with_arena_newtype!(TestStopArena);
+        with_arena_in_state_part!(TestStopArena);
 
         fn stop(&self, state: &mut dyn State, id: Id<Self::Component>) {
             self.get_mut(state)[id].stop = true;
