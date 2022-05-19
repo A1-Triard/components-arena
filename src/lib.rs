@@ -762,6 +762,23 @@ impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
 
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
 ///
+/// Accepts input in the following form:
+///
+/// ```ignore
+/// $(
+///     ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
+/// |
+///     (class=$class:ident $(, stop=$stop:ident)? $(,)?)
+/// )
+/// $vis:vis $(enum | struct) $name:ident
+/// $(
+///     <$generics>
+///     $($tokens_between_generics_and_where_clause:tt)*
+///     $(where $where_clause)?
+/// )?
+/// $( ; | { $($body:tt)* } )
+/// ```
+///
 /// # Examples
 ///
 /// ## Non-generic component
@@ -809,127 +826,54 @@ impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
 #[macro_export]
 macro_rules! Component {
     (
-        ()
+        ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
         $vis:vis enum $name:ident
-        $($body:tt)*
+        $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [] []
+                @impl [$vis] [$name] [$($($class)?)?] [$($stop)?]
             }
-            $($body)*
+            $($token)*
         }
     };
     (
-        (class=$class:ident)
+        (class=$class:ident $(, stop=$stop:ident)? $(,)?)
         $vis:vis enum $name:ident
-        $($body:tt)*
+        $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$class] []
+                @impl [$vis] [$name] [$class] [$($stop)?]
             }
-            $($body)*
+            $($token)*
         }
     };
     (
-        (stop=$stop:ident)
-        $vis:vis enum $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [] [$stop]
-            }
-            $($body)*
-        }
-    };
-    (
-        (class=$class:ident, stop=$stop:ident)
-        $vis:vis enum $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$stop]
-            }
-            $($body)*
-        }
-    };
-    (
-        (stop=$stop:ident, class=$class:ident)
-        $vis:vis enum $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$stop]
-            }
-            $($body)*
-        }
-    };
-    (
-        ()
+        ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
         $vis:vis struct $name:ident
-        $($body:tt)*
+        $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [] []
+                @impl [$vis] [$name] [$($($class)?)?] [$($stop)?]
             }
-            $($body)*
+            $($token)*
         }
     };
     (
-        (class=$class:ident)
+        (class=$class:ident $(, stop=$stop:ident)? $(,)?)
         $vis:vis struct $name:ident
-        $($body:tt)*
+        $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$class] []
+                @impl [$vis] [$name] [$class] [$($stop)?]
             }
-            $($body)*
-        }
-    };
-    (
-        (stop=$stop:ident)
-        $vis:vis struct $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [] [$stop]
-            }
-            $($body)*
-        }
-    };
-    (
-        (class=$class:ident, stop=$stop:ident)
-        $vis:vis struct $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$stop]
-            }
-            $($body)*
-        }
-    };
-    (
-        (stop=$stop:ident, class=$class:ident)
-        $vis:vis struct $name:ident
-        $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$stop]
-            }
-            $($body)*
+            $($token)*
         }
     };
 }
-
 
 #[doc(hidden)]
 #[macro_export]
@@ -1025,6 +969,22 @@ macro_rules! Component_impl {
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018)
 /// for deriving [`ComponentId`](trait@ComponentId) trait.
 ///
+/// Accepts input in any of following forms:
+///
+/// ```ignore
+/// ()
+/// $vis:vis struct $name:ident (
+///     $(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?
+/// );
+/// ```
+///
+/// ```ignore
+/// ()
+/// $vis:vis struct $name:ident <$generics> (
+///     $(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?
+/// ) $(where $where_clause)?;
+/// ```
+///
 /// # Examples
 ///
 /// ```rust
@@ -1051,13 +1011,13 @@ macro_rules! Component_impl {
 macro_rules! NewtypeComponentId {
     (
         ()
-        $vis:vis struct $name:ident $($body:tt)*
+        $vis:vis struct $name:ident $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::NewtypeComponentId_impl {
                 [$name]
             }
-            $($body)*
+            $($token)*
         }
     };
 }
