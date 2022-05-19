@@ -1188,8 +1188,7 @@ mod test {
 
 #[cfg(all(test, feature="dyn-context"))]
 mod test_dyn_context {
-    use dyn_context::Stop;
-    use dyn_context::state::State;
+    use dyn_context::{SelfState, State, Stop};
     use macro_attr_2018::macro_attr;
     use crate::*;
 
