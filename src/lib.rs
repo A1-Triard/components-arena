@@ -20,9 +20,13 @@ extern crate alloc;
 #[doc(hidden)]
 pub use core::compile_error as std_compile_error;
 #[doc(hidden)]
+pub use core::concat as std_concat;
+#[doc(hidden)]
 pub use core::default::Default as std_default_Default;
 #[doc(hidden)]
 pub use core::option::Option as std_option_Option;
+#[doc(hidden)]
+pub use core::stringify as std_stringify;
 #[cfg(feature="dyn-context")]
 #[doc(hidden)]
 pub use dyn_context::State as dyn_context_State;
@@ -759,6 +763,12 @@ impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
     }
 });
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! unexpected_token {
+    () => { };
+}
+
 /// [Macro attribute](https://crates.io/crates/macro-attr-2018) for deriving [`Component`](trait@Component) trait.
 ///
 /// Accepts input in the following form:
@@ -890,10 +900,14 @@ macro_rules! Component_impl {
     (
         @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
     ) => {
-        $crate::std_compile_error!("\
-            generic component requires separate non-generic component class; \
-            consider adding 'class' parameter: '#[derive(Component!(class=$class)'\
-        ");
+        $crate::std_compile_error!($crate::std_concat!(
+            "\
+                generic component requires separate non-generic component class; \
+                consider adding 'class' parameter: '#[derive(Component!(class=\
+            ",
+            $crate::std_stringify!($name),
+            "Class)]'"
+        ));
     };
     (
         @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] $g:tt $r:tt $w:tt $($body:tt)*
@@ -973,14 +987,16 @@ macro_rules! Component_impl {
 /// ```ignore
 /// ()
 /// $vis:vis struct $name:ident (
-///     $(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?
+///     $(#[$id_attr:meta])* $(pub)? $id:ty
+///     $(, $(#[$phantom_attr:meta])* $(pub)? $phantom:ty)* $(,)?
 /// );
 /// ```
 ///
 /// ```ignore
 /// ()
 /// $vis:vis struct $name:ident <$generics> (
-///     $(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?
+///     $(#[$id_attr:meta])* $(pub)? $id:ty
+///     $(, $(#[$phantom_attr:meta])* $(pub)? $phantom:ty)* $(,)?
 /// ) $(where $where_clause)?;
 /// ```
 ///
@@ -1025,8 +1041,10 @@ macro_rules! NewtypeComponentId {
 #[macro_export]
 macro_rules! NewtypeComponentId_impl {
     (
-        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        ($(pub)? $id:ty $(, $(pub)? $phantom:ty)* $(,)?);
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] (
+            $(#[$id_attr:meta])* $(pub)? $id:ty
+            $(, $(#[$phantom_attr:meta])* $(pub)? $phantom:ty)* $(,)?
+        );
     ) => {
         impl $($g)* $crate::ComponentId for $name $($r)* $($w)* {
             fn from_raw(raw: $crate::RawId) -> Self {
@@ -1043,9 +1061,15 @@ macro_rules! NewtypeComponentId_impl {
     };
     (
         [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        $($body:tt)*
+        $token:tt $($tail:tt)*
     ) => {
-        $crate::std_compile_error!("'NewtypeComponentId' deriving is supported for non-empty tuple structs only");
+        $crate::unexpected_token!($token);
+        $crate::std_compile_error!("'NewtypeComponentId' supports deriving for non-empty tuple structs only");
+    };
+    (
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+    ) => {
+        $crate::std_compile_error!("'NewtypeComponentId' supports deriving for non-empty tuple structs only");
     };
 }
 
@@ -1164,7 +1188,7 @@ mod test {
     macro_attr! {
         #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-        struct IdWrap1(Id<Test>);
+        struct IdWrap1(#[allow(dead_code)] Id<Test>);
     }
 
     macro_attr! {
