@@ -732,6 +732,7 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
     }
 }
 
+#[cfg(feature="dyn-context")]
 pub trait ComponentAspect {
     type Component: Component;
 }
@@ -1050,6 +1051,7 @@ macro_rules! NewtypeComponentId_impl {
     };
 }
 
+#[cfg(feature="dyn-context")]
 #[macro_export]
 macro_rules! with_arena_in_state_part {
     (
