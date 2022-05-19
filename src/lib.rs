@@ -25,10 +25,10 @@ pub use core::default::Default as std_default_Default;
 pub use core::option::Option as std_option_Option;
 #[cfg(feature="dyn-context")]
 #[doc(hidden)]
-pub use dyn_context::state::State as dyn_context_state_State;
+pub use dyn_context::State as dyn_context_State;
 #[cfg(feature="dyn-context")]
 #[doc(hidden)]
-pub use dyn_context::state::StateExt as dyn_context_state_StateExt;
+pub use dyn_context::StateExt as dyn_context_StateExt;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
 
@@ -43,9 +43,7 @@ use core::ops::{Index, IndexMut};
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature="dyn-context")]
-use dyn_context::impl_stop_and_drop;
-#[cfg(feature="dyn-context")]
-use dyn_context::state::State;
+use dyn_context::{State, impl_stop_and_drop};
 use educe::Educe;
 use either::{Either, Left, Right};
 use phantom_type::PhantomType;
@@ -1059,16 +1057,16 @@ macro_rules! with_arena_in_state_part {
     ) => {
         fn get<'a>(
             &self,
-            state: &'a dyn $crate::dyn_context_state_State
+            state: &'a dyn $crate::dyn_context_State
         ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$StatePart>(state).0
+            &<dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get::<$StatePart>(state).0
         }
 
         fn get_mut<'a>(
             &self,
-            state: &'a mut dyn $crate::dyn_context_state_State
+            state: &'a mut dyn $crate::dyn_context_State
         ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$StatePart>(state).0
+            &mut <dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get_mut::<$StatePart>(state).0
         }
     };
     (
@@ -1076,16 +1074,16 @@ macro_rules! with_arena_in_state_part {
     ) => {
         fn get<'a>(
             &self,
-            state: &'a dyn $crate::dyn_context_state_State
+            state: &'a dyn $crate::dyn_context_State
         ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &<dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get::<$StatePart>(state). $field
+            &<dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get::<$StatePart>(state). $field
         }
 
         fn get_mut<'a>(
             &self,
-            state: &'a mut dyn $crate::dyn_context_state_State
+            state: &'a mut dyn $crate::dyn_context_State
         ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &mut <dyn $crate::dyn_context_state_State as $crate::dyn_context_state_StateExt>::get_mut::<$StatePart>(state). $field
+            &mut <dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get_mut::<$StatePart>(state). $field
         }
     };
 }
