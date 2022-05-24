@@ -12,63 +12,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  traits:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        rust: ["1.61", stable, beta]
-        features: ["", "--features=dyn-context"]
-        triple: [""]
-        include:
-        - os: ubuntu-latest
-          rust: nightly
+        rust: ["1.44", stable, beta, nightly]
+        features: ["", "--features=nightly"]
+        exclude:
+        - rust: "1.44"
           features: "--features=nightly"
-          triple: x86_64-unknown-linux-gnu
-        - os: windows-latest
-          rust: nightly
+        - rust: stable
           features: "--features=nightly"
-          triple: x86_64-pc-windows-msvc
-        - os: macOS-latest
-          rust: nightly
+        - rust: beta
           features: "--features=nightly"
-          triple: x86_64-apple-darwin
-        - os: ubuntu-latest
-          rust: nightly
-          features: ""
-          triple: x86_64-unknown-linux-gnu
-        - os: windows-latest
-          rust: nightly
-          features: ""
-          triple: x86_64-pc-windows-msvc
-        - os: macOS-latest
-          rust: nightly
-          features: ""
-          triple: x86_64-apple-darwin
-        - os: ubuntu-latest
-          rust: nightly
-          features: "--features=dyn-context,nightly"
-          triple: x86_64-unknown-linux-gnu
-        - os: windows-latest
-          rust: nightly
-          features: "--features=dyn-context,nightly"
-          triple: x86_64-pc-windows-msvc
-        - os: macOS-latest
-          rust: nightly
-          features: "--features=dyn-context,nightly"
-          triple: x86_64-apple-darwin
-        - os: ubuntu-latest
-          rust: nightly
-          features: "--features=dyn-context"
-          triple: x86_64-unknown-linux-gnu
-        - os: windows-latest
-          rust: nightly
-          features: "--features=dyn-context"
-          triple: x86_64-pc-windows-msvc
-        - os: macOS-latest
-          rust: nightly
-          features: "--features=dyn-context"
-          triple: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions-rs/toolchain@v1
@@ -76,60 +33,75 @@ jobs:
         toolchain: ${{ matrix.rust }}
         override: true
     - uses: actions/checkout@v2
-    - name: build
-      uses: actions-rs/cargo@v1
+    - name: detach from workspace
+      uses: JesseTG/rm@v1.0.2
       with:
-        command: build
-        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
-    - name: test --tests
-      uses: actions-rs/cargo@v1
+        path: Cargo.toml
+    - run: "cargo build --verbose --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - run: "cargo test --verbose --doc --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - run: "cargo doc --verbose --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+    - run: "cargo build --verbose --release --no-default-features ${{ matrix.features }}"
+      working-directory: traits
+  main:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        rust: ["1.61", stable, beta, nightly]
+        features: ["", "--features=dyn-context", "--features=nightly", "--fetures=dyn-context,nightly"]
+        exclude:
+        - rust: "1.61"
+          features: "--features=nightly"
+        - rust: stable
+          features: "--features=nightly"
+        - rust: beta
+          features: "--features=nightly"
+        - rust: "1.61"
+          features: "--features=dyn-context,nightly"
+        - rust: stable
+          features: "--features=dyn-context,nightly"
+        - rust: beta
+          features: "--features=dyn-context,nightly"
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions-rs/toolchain@v1
       with:
-        command: test
-        args: "--verbose --workspace --tests --no-default-features ${{ matrix.features }}"
-    - name: test --doc
-      uses: actions-rs/cargo@v1
+        toolchain: ${{ matrix.rust }}
+        override: true
+    - run: "rustup component add clippy"
+    - uses: actions/checkout@v2
+    - run: "cargo build --verbose --workspace --no-default-features ${{ matrix.features }}"
+    - run: "cargo test --verbose --workspace --tests --no-default-features ${{ matrix.features }}"
+    - run: "cargo test --verbose --workspace --doc --no-default-features ${{ matrix.features }}"
+    - run: "cargo doc --verbose --workspace --no-default-features ${{ matrix.features }}"
+    - run: "cargo build --verbose --workspace --release --no-default-features ${{ matrix.features }}"
+    - run: "cargo run --verbose --example widget_tree --no-default-features ${{ matrix.features }}"
+    - run: "cargo run --verbose --example widget_tree_generic --no-default-features ${{ matrix.features }}"
+    - run: "cargo outdated --verbose --workspace --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
+    - run: "cargo clippy --verbose --workspace --no-default-features ${{ matrix.features }}"
+  ensure_no_std:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        features: ["", "--features=dyn-context", "--features=nightly", "--fetures=dyn-context,nightly"]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - run: 'echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_ENV'
+      if: "${{ matrix.os == 'ubuntu-latest' }}"
+    - run: 'echo "triple=x86_64-pc-windows-msvc" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append'
+      if: "${{ matrix.os == 'windows-latest' }}"
+    - run: 'echo "triple=x86_64-apple-darwin" >> $GITHUB_ENV'
+      if: "${{ matrix.os == 'macOS-latest' }}"
+    - uses: actions-rs/toolchain@v1
       with:
-        command: test
-        args: "--verbose --workspace --doc --no-default-features ${{ matrix.features }}"
-    - name: doc
-      uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
-    - name: build --release
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: "--verbose --workspace --release --no-default-features ${{ matrix.features }}"
-    - name: rustup component add rust-src
-      run: "rustup component add rust-src --toolchain nightly-${{ matrix.triple }}"
-      if: "${{ matrix.triple != '' }}"
-    - name: ensure_no_std build
-      run: "cargo +nightly build --verbose -Z build-std=core,alloc,panic_abort --target ${{ matrix.triple }} --release"
+        toolchain: nightly
+        override: true
+    - run: "rustup component add rust-src --toolchain nightly-${{ env.triple }}"
+    - uses: actions/checkout@v2
+    - run: "cargo +nightly build --verbose -Z build-std=core,alloc,panic_abort --target ${{ env.triple }} --release"
       working-directory: ensure_no_std
-      if: "${{ matrix.triple != '' }}"
-    - name: ensure_no_std run
-      run: "./ensure_no_std/target/${{ matrix.triple }}/release/ensure_no_std"
-      if: "${{ matrix.triple != '' }}"
-    - name: run --example widget_tree
-      uses: actions-rs/cargo@v1
-      with:
-        command: run
-        args: "--verbose --example widget_tree --no-default-features ${{ matrix.features }}"
-    - name: run --example widget_tree_generic
-      uses: actions-rs/cargo@v1
-      with:
-        command: run
-        args: "--verbose --example widget_tree_generic --no-default-features ${{ matrix.features }}"
-    - name: outdated
-      uses: actions-rs/cargo@v1
-      with:
-        command: outdated
-        args: "--verbose --workspace --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
-    - name: rustup component add clippy
-      run: "rustup component add clippy"
-    - name: clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
+    - run: "./ensure_no_std/target/${{ env.triple }}/release/ensure_no_std"
