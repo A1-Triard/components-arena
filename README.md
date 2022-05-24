@@ -1,3 +1,5 @@
+![maintenance: actively developed](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
+
 # components-arena
 
 Strong-typed arena.

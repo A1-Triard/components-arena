@@ -37,3 +37,6 @@ rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
 macro-attr-2018 = "2.0.1"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
+
+[badges]
+maintenance = { status = "actively-developed" }
