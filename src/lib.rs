@@ -916,11 +916,9 @@ macro_rules! unexpected_token {
 /// Accepts input in the following form:
 ///
 /// ```ignore
-/// $(
-///     ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
-/// |
-///     (class=$class:ident $(, stop=$stop:ident)? $(,)?)
-/// )
+/// ($($(
+///     $param
+/// ),+ $(,)?)?
 /// $vis:vis $(enum | struct) $name:ident
 /// $(
 ///     <$generics>
@@ -928,6 +926,16 @@ macro_rules! unexpected_token {
 ///     $(where $where_clause)?
 /// )?
 /// $( ; | { $($body:tt)* } )
+/// ```
+///
+/// where $param may be in any of following forms:
+///
+/// ```ignore
+/// class = $Class:ident
+/// ```
+///
+/// ```ignore
+/// alloc = $Allocator:ty
 /// ```
 ///
 /// # Examples
@@ -977,51 +985,33 @@ macro_rules! unexpected_token {
 #[macro_export]
 macro_rules! Component {
     (
-        ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
+        ($($arg:tt)*)
         $vis:vis enum $name:ident
-        $($token:tt)*
+        $($token:tt)+
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$($($class)?)?] [$($stop)?]
+                @args
+                [, $($arg)*]
+                [] [] []
+                [$vis] [$name]
             }
-            $($token)*
+            $($token)+
         }
     };
     (
-        (class=$class:ident $(, stop=$stop:ident)? $(,)?)
-        $vis:vis enum $name:ident
-        $($token:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$($stop)?]
-            }
-            $($token)*
-        }
-    };
-    (
-        ($(stop=$stop:ident $(, class=$class:ident)? $(,)?)?)
+        ($($arg:tt)*)
         $vis:vis struct $name:ident
-        $($token:tt)*
+        $($token:tt)+
     ) => {
         $crate::generics_parse! {
             $crate::Component_impl {
-                @impl [$vis] [$name] [$($($class)?)?] [$($stop)?]
+                @args
+                [, $($arg)*]
+                [] [] []
+                [$vis] [$name]
             }
-            $($token)*
-        }
-    };
-    (
-        (class=$class:ident $(, stop=$stop:ident)? $(,)?)
-        $vis:vis struct $name:ident
-        $($token:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::Component_impl {
-                @impl [$vis] [$name] [$class] [$($stop)?]
-            }
-            $($token)*
+            $($token)+
         }
     };
 }
@@ -1030,17 +1020,168 @@ macro_rules! Component {
 #[macro_export]
 macro_rules! Component_impl {
     (
-        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [] [] [] $($body:tt)*
+        @args
+        [$(,)?]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @self [$name] [$($stop)?] }
+        $crate::Component_impl! {
+            @impl [$vis] [$name] [$($class)?] [$($stop)?] [$($alloc)?]
+            [$($g)*] [$($r)*] [$($w)*]
+        }
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [] [] [] $($body:tt)*
+        @args
+        [, alloc = $alloc:ty $(, $($token:tt)*)?]
+        [$($class:ident)?] [$($stop:ident)?] []
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] [] [] [])?] [] [] [] }
+        $crate::Component_impl! {
+            @args
+            [$(, $($token)*)?]
+            [$($class)?] [$($stop)?] [$alloc]
+            [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
+        }
     };
     (
-        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*] $($body:tt)*
+        @args
+        [, alloc = $alloc:ty $(, $($token:tt)*)?]
+        [$($class:ident)?] [$($stop:ident)?] [$alloc_:ty]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("duplicated 'alloc' parameter");
+    };
+    (
+        @args
+        [, alloc = $($token:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("invalid 'alloc' parameter");
+    };
+    (
+        @args
+        [, stop = $stop:ident $($token:tt)*]
+        [$($class:ident)?] [] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::Component_impl! {
+            @args
+            [$($token)*]
+            [$($class)?] [$stop] [$($alloc)?]
+            [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
+        }
+    };
+    (
+        @args
+        [, stop = $stop:ident $($token:tt)*]
+        [$($class:ident)?] [$stop_:ident] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("duplicated 'stop' parameter");
+    };
+    (
+        @args
+        [, stop = $stop:ident $($token:tt)*]
+        [$($class:ident)?] [$stop_:ident] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("duplicated 'stop' parameter");
+    };
+    (
+        @args
+        [, stop = $token:tt $($tail:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::unexpected_token!($token);
+        $crate::std_compile_error!("invalid 'stop' parameter");
+    };
+    (
+        @args
+        [, stop = ]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("invalid 'stop' parameter");
+    };
+    (
+        @args
+        [, class = $class:ident $($token:tt)*]
+        [] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::Component_impl! {
+            @args
+            [$($token)*]
+            [$class] [$($stop)?] [$($alloc)?]
+            [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
+        }
+    };
+    (
+        @args
+        [, class = $class:ident $($token:tt)*]
+        [$class_:ident] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("duplicated 'class' parameter");
+    };
+    (
+        @args
+        [, class = $token:tt $($tail:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::unexpected_token!($token);
+        $crate::std_compile_error!("invalid 'class' parameter");
+    };
+    (
+        @args
+        [, class = ]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("invalid 'class' parameter");
+    };
+    (
+        @args
+        [, $param:ident = $($token:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::unexpected_token!($param);
+        $crate::std_compile_error!($crate::std_concat!("unknown '", $crate::std_stringify!($param), "' parameter"));
+    };
+    (
+        @args
+        [, $token:tt $($tail:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::unexpected_token!($token);
+        $crate::std_compile_error!("invalid parameter");
+    };
+    (
+        @args
+        [$token:tt $($tail:tt)*]
+        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::unexpected_token!($token);
+        $crate::std_compile_error!("comma expected");
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($alloc:ty)?] [] [] []
+    ) => {
+        $crate::Component_impl! { @self [$name] [$($stop)?] [$($alloc)?] }
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($alloc:ty)?] [] [] []
+    ) => {
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] [] [] [])?] [$($alloc)?] [] [] [] }
+    };
+    (
+        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($alloc:ty)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*]
     ) => {
         $crate::std_compile_error!($crate::std_concat!(
             "\
@@ -1052,12 +1193,12 @@ macro_rules! Component_impl {
         ));
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] $g:tt $r:tt $w:tt $($body:tt)*
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($alloc:ty)?] $g:tt $r:tt $w:tt
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] $g $r $w)?] $g $r $w }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] $g $r $w)?] [$($alloc)?] $g $r $w }
     };
     (
-        @self [$name:ident] [$($stop:ident)?]
+        @self [$name:ident] [$($stop:ident)?] [$($alloc:ty)?]
     ) => {
         impl $crate::ComponentClass for $name {
             fn token() -> &'static $crate::ComponentClassToken {
@@ -1078,6 +1219,10 @@ macro_rules! Component_impl {
             type Class = Self;
 
             $(
+                type Alloc = $alloc;
+            )?
+
+            $(
                 fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
                     const COMPONENT_STOP: $stop = $stop;
                     $crate::std_option_Option::Some(&COMPONENT_STOP)
@@ -1089,7 +1234,7 @@ macro_rules! Component_impl {
         @class
         [$vis:vis] [$name:ident] [$class:ident]
         [$([$stop:ident] [$($g_:tt)*] [$($r_:tt)*] [$($w_:tt)*])?]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($alloc:ty)?] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $vis enum $class { }
 
@@ -1110,6 +1255,10 @@ macro_rules! Component_impl {
 
         impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
+
+            $(
+                type Alloc = $alloc;
+            )?
 
             $(
                 fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
