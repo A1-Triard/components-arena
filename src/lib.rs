@@ -918,7 +918,7 @@ macro_rules! unexpected_token {
 /// ```ignore
 /// ($($(
 ///     $param
-/// ),+ $(,)?)?
+/// ),+ $(,)?)?)
 /// $vis:vis $(enum | struct) $name:ident
 /// $(
 ///     <$generics>
