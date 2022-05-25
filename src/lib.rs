@@ -1435,6 +1435,10 @@ mod test {
 
     static TEST_DROP: AtomicI8 = AtomicI8::new(-1);
 
+    const fn new_test_arena() -> Arena<Test> {
+        Arena::new()
+    }
+
     impl Drop for Test {
         fn drop(&mut self) {
             TEST_DROP.store(self.value, Ordering::SeqCst);
