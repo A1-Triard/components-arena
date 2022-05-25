@@ -9,13 +9,15 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 
+#![cfg_attr(feature="nightly", feature(allocator_api))]
+#![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
 
 #![no_std]
 
 include!("doc_test_readme.include");
 
-extern crate alloc;
+extern crate alloc as alloc_crate;
 
 #[doc(hidden)]
 pub use core::compile_error as std_compile_error;
@@ -36,18 +38,20 @@ pub use dyn_context::StateExt as dyn_context_StateExt;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
 
-use alloc::collections::TryReserveError;
-use alloc::vec::{self, Vec};
+#[cfg(feature="nightly")]
+use alloc_crate::alloc::{self, Allocator};
+use alloc_crate::collections::TryReserveError;
+use alloc_crate::vec::{self, Vec};
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
 use core::mem::replace;
-use core::num::{NonZeroUsize};
+use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature="dyn-context")]
-use dyn_context::{State, impl_stop_and_drop};
+use dyn_context::{State, Stop, impl_stop_and_drop};
 use educe::Educe;
 use either::{Either, Left, Right};
 use phantom_type::PhantomType;
@@ -122,6 +126,9 @@ pub trait Component {
     /// non-generic synthetic uninhabited type for generic ones.
     type Class: ComponentClass;
 
+    #[cfg(feature="nightly")]
+    type Alloc: Allocator = alloc::Global;
+
     #[cfg(feature="dyn-context")]
     fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> { None }
 }
@@ -141,12 +148,17 @@ include!("impl_id_nightly.rs");
 #[cfg(not(feature="nightly"))]
 include!("impl_id_stable.rs");
 
-/// A (mostly readonly) inner container holding [`Arena`](Arena) items.
+/// A (mostly read-only) inner container holding [`Arena`](Arena) items.
 /// While [`Arena`](Arena) itself is unique (i.e. non-clonable) object,
 /// arena ['items'](Arena::items) could be cloned.
 #[derive(Debug, Clone)]
 pub struct ArenaItems<C: Component> {
+    #[cfg(feature="nightly")]
+    vec: Vec<Either<Option<usize>, (NonZeroUsize, C)>, C::Alloc>,
+
+    #[cfg(not(feature="nightly"))]
     vec: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
+
     vacancy: Option<usize>,
 }
 
@@ -157,6 +169,15 @@ impl<C: Component> ArenaItems<C> {
         self.vec.clear();
     }
 
+    #[cfg(feature="nightly")]
+    const fn new_in(alloc: C::Alloc) -> Self {
+        ArenaItems {
+            vec: Vec::new_in(alloc),
+            vacancy: None
+        }
+    }
+
+    #[cfg(not(feature="nightly"))]
     const fn new() -> Self {
         ArenaItems {
             vec: Vec::new(),
@@ -164,12 +185,25 @@ impl<C: Component> ArenaItems<C> {
         }
     }
 
+    #[cfg(feature="nightly")]
+    fn with_capacity_in(capacity: usize, alloc: C::Alloc) -> Self {
+        ArenaItems {
+            vec: Vec::with_capacity_in(capacity, alloc),
+            vacancy: None
+        }
+    }
+
+    #[cfg(not(feature="nightly"))]
     fn with_capacity(capacity: usize) -> Self {
         ArenaItems {
             vec: Vec::with_capacity(capacity),
             vacancy: None
         }
     }
+
+    /// Returns a reference to the underlying allocator.
+    #[cfg(feature="nightly")]
+    pub fn allocator(&self) -> &C::Alloc { self.vec.allocator() }
 
     /// Returns the number of elements the arena can hold without reallocating.
     pub fn capacity(&self) -> usize { self.vec.capacity() }
@@ -468,7 +502,11 @@ impl<'a, C: Component> FusedIterator for ArenaItemsValues<'a, C> { }
 /// Usually created by the [`ArenaItems::into_ids`](ArenaItems::into_ids) method.
 #[derive(Debug)]
 pub struct ArenaItemsIntoIds<C: Component>(
-    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
+    #[cfg(feature="nightly")]
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>, C::Alloc>>,
+
+    #[cfg(not(feature="nightly"))]
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>,
 );
 
 impl<C: Component> Iterator for ArenaItemsIntoIds<C> {
@@ -508,7 +546,11 @@ impl<C: Component> FusedIterator for ArenaItemsIntoIds<C> { }
 /// Usually created by the [`ArenaItems::into_values`](ArenaItems::into_values) method.
 #[derive(Debug)]
 pub struct ArenaItemsIntoValues<C: Component>(
-    vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>
+    #[cfg(feature="nightly")]
+    vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>, C::Alloc>,
+
+    #[cfg(not(feature="nightly"))]
+    vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>,
 );
 
 impl<C: Component> Iterator for ArenaItemsIntoValues<C> {
@@ -548,7 +590,11 @@ impl<C: Component> FusedIterator for ArenaItemsIntoValues<C> { }
 /// Usually created by the [`ArenaItems::into_iter`](ArenaItems::into_iter) method.
 #[derive(Debug, Clone)]
 pub struct ArenaItemsIntoIter<C: Component>(
-    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>
+    #[cfg(feature="nightly")]
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>, C::Alloc>>,
+
+    #[cfg(not(feature="nightly"))]
+    iter::Enumerate<vec::IntoIter<Either<Option<usize>, (NonZeroUsize, C)>>>,
 );
 
 impl<C: Component> Iterator for ArenaItemsIntoIter<C> {
@@ -601,27 +647,112 @@ impl<'a, C: Component> IntoIterator for &'a ArenaItems<C> {
     fn into_iter(self) -> Self::IntoIter { self.iter() }
 }
 
+mod forgettable_field {
+    use core::fmt::{self, Debug, Formatter};
+    use core::mem::{MaybeUninit, forget, replace};
+    use core::ops::{Deref, DerefMut};
+
+    pub struct ForgettableField<T>(MaybeUninit<T>);
+
+    impl<T> ForgettableField<T> {
+        pub const fn new(value: T) -> Self { ForgettableField(MaybeUninit::new(value)) }
+
+        pub fn into_inner(mut this: Self) -> T {
+            let inner = replace(&mut this.0, MaybeUninit::uninit());
+            forget(this);
+            unsafe { inner.assume_init() }
+        }
+
+        pub fn take_and_forget<Owner>(mut owner: Owner, f: impl FnOnce(&mut Owner) -> &mut Self) -> T {
+            let this = replace(f(&mut owner), ForgettableField(MaybeUninit::uninit()));
+            forget(owner);
+            Self::into_inner(this)
+        }
+    }
+
+    impl<T> Drop for ForgettableField<T> {
+        fn drop(&mut self) {
+            unsafe { self.0.assume_init_drop() }
+        }
+    }
+
+    impl<T> Deref for ForgettableField<T> {
+        type Target = T;
+
+        fn deref(&self) -> &T { unsafe { self.0.assume_init_ref() } }
+    }
+
+    impl<T> DerefMut for ForgettableField<T> {
+        fn deref_mut(&mut self) -> &mut T { unsafe { self.0.assume_init_mut() } }
+    }
+
+    impl<T: Default> Default for ForgettableField<T> {
+        fn default() -> Self { ForgettableField::new(T::default()) }
+    }
+
+    impl<T: Debug> Debug for ForgettableField<T> {
+        fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+            self.deref().fmt(f)
+        }
+    }
+}
+
+use forgettable_field::*;
+
 /// Unordered container with random access.
+#[cfg(feature="nightly")]
+#[derive(Educe)]
+#[educe(Debug(bound = "C: Debug, C::Alloc: Debug"))]
+pub struct Arena<C: Component + 'static> {
+    guard_rng: Option<SmallRng>,
+    items: ForgettableField<ArenaItems<C>>,
+}
+
+/// Unordered container with random access.
+#[cfg(not(feature="nightly"))]
 #[derive(Debug)]
 pub struct Arena<C: Component + 'static> {
     guard_rng: Option<SmallRng>,
-    items: ArenaItems<C>,
+    items: ForgettableField<ArenaItems<C>>,
 }
+
+#[cfg(feature="nightly")]
+include!("arena_new.rs");
 
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
+    #[cfg(not(feature="nightly"))]
     pub const fn new() -> Self {
         Arena {
             guard_rng: None,
-            items: ArenaItems::new()
+            items: ForgettableField::new(ArenaItems::new())
         }
     }
 
     /// Creates an arena instance with the specified initial capacity.
+    #[cfg(not(feature="nightly"))]
     pub fn with_capacity(capacity: usize) -> Self {
         Arena {
             guard_rng: None,
-            items: ArenaItems::with_capacity(capacity)
+            items: ForgettableField::new(ArenaItems::with_capacity(capacity))
+        }
+    }
+
+    /// Creates an arena instance.
+    #[cfg(feature="nightly")]
+    pub const fn new_in(alloc: C::Alloc) -> Self {
+        Arena {
+            guard_rng: None,
+            items: ForgettableField::new(ArenaItems::new_in(alloc))
+        }
+    }
+
+    /// Creates an arena instance with the specified initial capacity.
+    #[cfg(feature="nightly")]
+    pub fn with_capacity_in(capacity: usize, alloc: C::Alloc) -> Self {
+        Arena {
+            guard_rng: None,
+            items: ForgettableField::new(ArenaItems::with_capacity_in(capacity, alloc))
         }
     }
 
@@ -636,7 +767,11 @@ impl<C: Component> Arena<C> {
     /// Returns contained items packed in a special container.
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
-    pub fn into_items(mut self) -> ArenaItems<C> { replace(&mut self.items, ArenaItems::new()) }
+    pub fn into_items(#[allow(unused_mut)] mut self) -> ArenaItems<C> {
+        #[cfg(feature="dyn-context")]
+        Stop::drop(&mut self);
+        ForgettableField::take_and_forget(self, |x| &mut x.items)
+    }
 
     /// Returns reference to contained items packed in a special container.
     /// While arena itself is unique (i.e. non-clonable) object,
@@ -644,7 +779,7 @@ impl<C: Component> Arena<C> {
     pub fn items(&self) -> &ArenaItems<C> { &self.items }
 
     /// Returns mutable reference to contained items packed in
-    /// a (mostly readonly) special container.
+    /// a (mostly read-only) special container.
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
     pub fn items_mut(&mut self) -> &mut ArenaItems<C> { &mut self.items }
@@ -690,11 +825,12 @@ impl<C: Component> Arena<C> {
 
     /// Removes component with provided id.
     ///
-    /// The arena tries to detect invalid provided id (i. e. foreign, or previously dropped),
+    /// The arena tries to detect invalid provided id (i.e. foreign, or previously dropped),
     /// and panics if such detection hits. But it is important to pay respect to the fact
     /// there is small probability that invalid id will not be intercepted.
     pub fn remove(&mut self, id: Id<C>) -> C {
-        match replace(&mut self.items.vec[id.index], Left(self.items.vacancy)) {
+        let vacancy = self.items.vacancy;
+        match replace(&mut self.items.vec[id.index], Left(vacancy)) {
             Left(vacancy) => {
                 self.items.vec[id.index] = Left(vacancy);
                 panic!("invalid id");
@@ -712,6 +848,12 @@ impl<C: Component> Arena<C> {
     }
 }
 
+#[cfg(feature="nightly")]
+impl<C: Component> Default for Arena<C> where C::Alloc: Default {
+    fn default() -> Self { Arena::new() }
+}
+
+#[cfg(not(feature="nightly"))]
 impl<C: Component> Default for Arena<C> {
     fn default() -> Self { Arena::new() }
 }
