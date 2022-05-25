@@ -12,7 +12,6 @@
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(feature="nightly", feature(unsize))]
 
 #![no_std]
 
@@ -222,10 +221,16 @@ pub struct ArenaItems<C: Component> {
 }
 
 impl<C: Component> ArenaItems<C> {
+    /// An amount of memory required to hold one component.
+    ///
+    /// This information can be useful for memory management fine-tuning.
     pub const fn item_size() -> usize {
         size_of::<ArenaItem<C>>()
     }
 
+    /// An alignment of a cell, holding a component with all required metadata.
+    ///
+    /// This information can be useful for memory management fine-tuning.
     pub const fn item_align() -> usize {
         align_of::<ArenaItem<C>>()
     }
