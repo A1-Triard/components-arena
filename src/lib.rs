@@ -126,6 +126,10 @@ pub trait Component {
     /// non-generic synthetic uninhabited type for generic ones.
     type Class: ComponentClass;
 
+    /// Component allocator.
+    ///
+    /// [`Arena`]`<Self>` will use this allocator to allocate memory
+    /// for components array.
     #[cfg(feature="nightly")]
     type Alloc: Allocator = alloc::Global;
 
