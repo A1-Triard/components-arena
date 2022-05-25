@@ -12,6 +12,7 @@
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
+#![cfg_attr(feature="nightly", feature(unsize))]
 
 #![no_std]
 
@@ -39,7 +40,7 @@ pub use dyn_context::StateExt as dyn_context_StateExt;
 pub use generics::parse as generics_parse;
 
 #[cfg(feature="nightly")]
-use alloc_crate::alloc::{self, Allocator};
+use alloc_crate::alloc::{self, AllocError, Allocator};
 use alloc_crate::collections::TryReserveError;
 use alloc_crate::vec::{self, Vec};
 use core::fmt::Debug;
@@ -48,6 +49,8 @@ use core::iter::{self, FusedIterator};
 use core::mem::replace;
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
+#[cfg(feature="nightly")]
+use core::ptr::NonNull;
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature="dyn-context")]
@@ -114,6 +117,55 @@ pub trait ComponentClass {
     fn token() -> &'static ComponentClassToken where Self: Sized;
 }
 
+#[cfg(feature="nightly")]
+#[derive(Debug, Copy, Clone)]
+pub struct DefaultAlloc;
+
+#[cfg(feature="nightly")]
+unsafe impl Allocator for DefaultAlloc {
+    fn allocate(&self, layout: alloc::Layout) -> Result<NonNull<[u8]>, AllocError> {
+        alloc::Global.allocate(layout)
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: alloc::Layout) {
+        alloc::Global.deallocate(ptr, layout)
+    }
+
+    fn allocate_zeroed(
+        &self, 
+        layout: alloc::Layout
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        alloc::Global.allocate_zeroed(layout)
+    }
+
+    unsafe fn grow(
+        &self, 
+        ptr: NonNull<u8>, 
+        old_layout: alloc::Layout, 
+        new_layout: alloc::Layout
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        alloc::Global.grow(ptr, old_layout, new_layout)
+    }
+
+    unsafe fn grow_zeroed(
+        &self, 
+        ptr: NonNull<u8>, 
+        old_layout: alloc::Layout, 
+        new_layout: alloc::Layout
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        alloc::Global.grow_zeroed(ptr, old_layout, new_layout)
+    }
+
+    unsafe fn shrink(
+        &self, 
+        ptr: NonNull<u8>, 
+        old_layout: alloc::Layout, 
+        new_layout: alloc::Layout
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        alloc::Global.shrink(ptr, old_layout, new_layout)
+    }
+}
+
 /// An implementer of the `Component` trait is a type, whose values can be placed into
 /// [`Arena`](Arena) container.
 ///
@@ -131,7 +183,7 @@ pub trait Component {
     /// [`Arena`]`<Self>` will use this allocator to allocate memory
     /// for components array.
     #[cfg(feature="nightly")]
-    type Alloc: Allocator = alloc::Global;
+    type Alloc: Allocator = DefaultAlloc;
 
     #[cfg(feature="dyn-context")]
     fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> { None }
@@ -721,7 +773,7 @@ pub struct Arena<C: Component + 'static> {
 }
 
 #[cfg(feature="nightly")]
-include!("arena_new.rs");
+include!("arena_nightly.rs");
 
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
