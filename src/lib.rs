@@ -46,7 +46,7 @@ use alloc_crate::vec::{self, Vec};
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
-use core::mem::replace;
+use core::mem::{align_of, replace, size_of};
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
 #[cfg(feature="nightly")]
@@ -205,21 +205,31 @@ include!("impl_id_nightly.rs");
 #[cfg(not(feature="nightly"))]
 include!("impl_id_stable.rs");
 
+type ArenaItem<C> = Either<Option<usize>, (NonZeroUsize, C)>;
+
 /// A (mostly read-only) inner container holding [`Arena`](Arena) items.
 /// While [`Arena`](Arena) itself is unique (i.e. non-clonable) object,
 /// arena ['items'](Arena::items) could be cloned.
 #[derive(Debug, Clone)]
 pub struct ArenaItems<C: Component> {
     #[cfg(feature="nightly")]
-    vec: Vec<Either<Option<usize>, (NonZeroUsize, C)>, C::Alloc>,
+    vec: Vec<ArenaItem<C>, C::Alloc>,
 
     #[cfg(not(feature="nightly"))]
-    vec: Vec<Either<Option<usize>, (NonZeroUsize, C)>>,
+    vec: Vec<ArenaItem<C>>,
 
     vacancy: Option<usize>,
 }
 
 impl<C: Component> ArenaItems<C> {
+    pub const fn item_size() -> usize {
+        size_of::<ArenaItem<C>>()
+    }
+
+    pub const fn item_align() -> usize {
+        align_of::<ArenaItem<C>>()
+    }
+
     #[cfg(feature="dyn-context")]
     fn clear(&mut self) {
         self.vacancy = None;
