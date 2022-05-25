@@ -117,6 +117,7 @@ pub trait ComponentClass {
     fn token() -> &'static ComponentClassToken where Self: Sized;
 }
 
+/// [`alloc::Global`] synonym.
 #[cfg(feature="nightly")]
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultAlloc;
