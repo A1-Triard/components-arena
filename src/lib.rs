@@ -776,7 +776,7 @@ use forgettable_field::*;
 #[cfg(feature="nightly")]
 #[derive(Educe)]
 #[educe(Debug(bound = "C: Debug, C::Alloc: Debug"))]
-pub struct Arena<C: Component> {
+pub struct Arena<C: Component + 'static> {
     guard_rng: Option<SmallRng>,
     items: ForgettableField<ArenaItems<C>>,
 }
@@ -784,7 +784,7 @@ pub struct Arena<C: Component> {
 /// Unordered container with random access.
 #[cfg(not(feature="nightly"))]
 #[derive(Debug)]
-pub struct Arena<C: Component> {
+pub struct Arena<C: Component + 'static> {
     guard_rng: Option<SmallRng>,
     items: ForgettableField<ArenaItems<C>>,
 }
@@ -962,7 +962,7 @@ pub trait ComponentStop: ComponentAspect {
 }
 
 #[cfg(feature="dyn-context")]
-impl_stop_and_drop!(<C: Component> for Arena<C> {
+impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
     fn is_stopped(&self) -> bool { self.items.is_empty() || C::as_component_stop().is_none() }
 
     fn stop(state: &mut dyn State) {
