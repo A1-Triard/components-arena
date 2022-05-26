@@ -1,7 +1,3 @@
-impl const Default for DefaultAlloc {
-    fn default() -> Self { DefaultAlloc }
-}
-
 impl<C: Component> Arena<C> {
     /// Creates an arena instance.
     pub const fn new() -> Self where C::Alloc: ~const Default {
