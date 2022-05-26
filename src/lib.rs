@@ -15,7 +15,8 @@
 
 #![no_std]
 
-include!("doc_test_readme.include");
+#[doc=include_str!("../README.md")]
+type _DocTestReadme = ();
 
 extern crate alloc as alloc_crate;
 
