@@ -12,6 +12,7 @@
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
+#![cfg_attr(feature="nightly", feature(explicit_generic_args_with_impl_trait))] 
 
 #![no_std]
 
@@ -46,14 +47,12 @@ use alloc_crate::vec::{self, Vec};
 #[cfg(feature="nightly")]
 use composable_allocators::Global as GlobalAlloc;
 #[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::Or as AllocOr;
+use composable_allocators::or::Or as AllocOr;
 #[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::Stacked as StackedAlloc;
+use composable_allocators::stacked as stacked_alloc;
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
-#[cfg(all(feature="dyn-context", feature="nightly"))]
-use core::mem::MaybeUninit;
 use core::mem::{align_of, replace, size_of};
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
@@ -925,8 +924,7 @@ impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
         if let Some(component_stop) = C::as_component_stop() {
             #[cfg(feature="nightly")]
             {
-                let mut buf: [MaybeUninit<u8>; 256] = unsafe { MaybeUninit::uninit().assume_init() };
-                StackedAlloc::with(&mut buf, |stacked_alloc| {
+                stacked_alloc::with_size::<256, _>(|stacked_alloc| {
                     let arena = component_stop.get(state);
                     let mut ids = Vec::new_in(AllocOr(stacked_alloc, GlobalAlloc));
                     ids.extend(arena.items().ids());
