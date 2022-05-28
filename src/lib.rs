@@ -45,11 +45,11 @@ use alloc_crate::alloc::Allocator;
 use alloc_crate::collections::TryReserveError;
 use alloc_crate::vec::{self, Vec};
 #[cfg(feature="nightly")]
-use composable_allocators::Global as GlobalAlloc;
+use composable_allocators::Global as Global;
 #[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::or::Or as AllocOr;
+use composable_allocators::fallbacked::Fallbacked;
 #[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::stacked as stacked_alloc;
+use composable_allocators::stacked::{self};
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
@@ -139,7 +139,7 @@ pub trait Component {
     /// [`Arena`]`<Self>` will use this allocator to allocate memory
     /// for components array.
     #[cfg(feature="nightly")]
-    type Alloc: Allocator = GlobalAlloc;
+    type Alloc: Allocator = Global;
 
     #[cfg(feature="dyn-context")]
     fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> { None }
@@ -924,9 +924,9 @@ impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
         if let Some(component_stop) = C::as_component_stop() {
             #[cfg(feature="nightly")]
             {
-                stacked_alloc::with_size::<256, _>(|stacked_alloc| {
+                stacked::with_size::<256, _>(|stacked| {
                     let arena = component_stop.get(state);
-                    let mut ids = Vec::new_in(AllocOr(stacked_alloc, GlobalAlloc));
+                    let mut ids = Vec::new_in(Fallbacked(stacked, Global));
                     ids.extend(arena.items().ids());
                     for id in ids {
                         component_stop.stop(state, id);
@@ -1544,6 +1544,18 @@ mod test {
         #[derive(NewtypeComponentId!, Educe)]
         #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
         struct IdWrap4<X, Y: Copy>((), PhantomType<X>, PhantomType<Y>);
+    }
+}
+
+#[cfg(all(test, feature="nightly"))]
+mod test_nightly {
+    use macro_attr_2018::macro_attr;
+    use crate::*;
+
+    macro_attr! {
+        #[derive(Component!(alloc=&'static dyn Allocator))]
+        struct TestComponent {
+        }
     }
 }
 
