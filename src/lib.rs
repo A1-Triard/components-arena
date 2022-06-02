@@ -1471,13 +1471,24 @@ mod test {
         }
     }
 
-    static TEST_DROP: AtomicI8 = AtomicI8::new(-1);
-
     const fn _new_test_arena() -> Arena<Test> {
         Arena::new()
     }
 
-    impl Drop for Test {
+    macro_attr! {
+        #[derive(Component!)]
+        struct TestWithDrop {
+            value: i8
+        }
+    }
+
+    static TEST_DROP: AtomicI8 = AtomicI8::new(-1);
+
+    const fn _new_test_with_drop_arena() -> Arena<TestWithDrop> {
+        Arena::new()
+    }
+
+    impl Drop for TestWithDrop {
         fn drop(&mut self) {
             TEST_DROP.store(self.value, Ordering::SeqCst);
         }
@@ -1516,7 +1527,7 @@ mod test {
     fn drop_components() {
         {
             let mut arena = Arena::new();
-            arena.insert(|this| (Test { this, value: 7 }, this)).into_raw();
+            arena.insert(|this| (TestWithDrop { value: 7 }, this)).into_raw();
             TEST_DROP.store(-1, Ordering::SeqCst);
         }
         assert_eq!(TEST_DROP.load(Ordering::SeqCst), 7);
