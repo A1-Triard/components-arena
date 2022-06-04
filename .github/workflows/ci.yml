@@ -51,7 +51,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         rust: ["1.61", stable, beta, nightly]
-        features: ["", "--features=dyn-context", "--features=nightly", "--features=dyn-context,nightly"]
+        features: ["", "--features=nightly"]
         exclude:
         - rust: "1.61"
           features: "--features=nightly"
@@ -59,12 +59,6 @@ jobs:
           features: "--features=nightly"
         - rust: beta
           features: "--features=nightly"
-        - rust: "1.61"
-          features: "--features=dyn-context,nightly"
-        - rust: stable
-          features: "--features=dyn-context,nightly"
-        - rust: beta
-          features: "--features=dyn-context,nightly"
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions-rs/toolchain@v1
@@ -87,7 +81,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        features: ["", "--features=dyn-context", "--features=nightly", "--features=dyn-context,nightly"]
+        features: ["", "--features=nightly"]
     runs-on: ${{ matrix.os }}
     steps:
     - run: 'echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_ENV'
