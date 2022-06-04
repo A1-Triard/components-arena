@@ -31,12 +31,6 @@ pub use core::default::Default as std_default_Default;
 pub use core::option::Option as std_option_Option;
 #[doc(hidden)]
 pub use core::stringify as std_stringify;
-#[cfg(feature="dyn-context")]
-#[doc(hidden)]
-pub use dyn_context::State as dyn_context_State;
-#[cfg(feature="dyn-context")]
-#[doc(hidden)]
-pub use dyn_context::StateExt as dyn_context_StateExt;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
 
@@ -46,10 +40,6 @@ use alloc_crate::collections::TryReserveError;
 use alloc_crate::vec::{self, Vec};
 #[cfg(feature="nightly")]
 use composable_allocators::Global as Global;
-#[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::fallbacked::Fallbacked;
-#[cfg(all(feature="dyn-context", feature="nightly"))]
-use composable_allocators::stacked::{self};
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
@@ -58,8 +48,6 @@ use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
 use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(feature="dyn-context")]
-use dyn_context::{State, Stop, impl_stop_and_drop};
 use educe::Educe;
 use either::{Either, Left, Right};
 use phantom_type::PhantomType;
@@ -140,9 +128,6 @@ pub trait Component {
     /// for components array.
     #[cfg(feature="nightly")]
     type Alloc: Allocator = Global;
-
-    #[cfg(feature="dyn-context")]
-    fn as_component_stop() -> Option<&'static dyn ComponentStop<Component=Self>> { None }
 }
 
 /// [`Arena`](Arena) item handle.
@@ -189,12 +174,6 @@ impl<C: Component> ArenaItems<C> {
     /// This information can be useful for memory management fine-tuning.
     pub const fn item_align() -> usize {
         align_of::<ArenaItem<C>>()
-    }
-
-    #[cfg(feature="dyn-context")]
-    fn clear(&mut self) {
-        self.vacancy = None;
-        self.vec.clear();
     }
 
     #[cfg(feature="nightly")]
@@ -796,8 +775,6 @@ impl<C: Component> Arena<C> {
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
     pub fn into_items(#[allow(unused_mut)] mut self) -> ArenaItems<C> {
-        #[cfg(feature="dyn-context")]
-        Stop::drop(&mut self);
         ForgettableField::take_and_forget(self, |x| &mut x.items)
     }
 
@@ -903,49 +880,6 @@ impl<C: Component> IndexMut<Id<C>> for Arena<C> {
         component
     }
 }
-
-#[cfg(feature="dyn-context")]
-pub trait ComponentAspect {
-    type Component: Component;
-}
-
-#[cfg(feature="dyn-context")]
-pub trait ComponentStop: ComponentAspect {
-    fn get<'a>(&self, state: &'a dyn State) -> &'a Arena<Self::Component>;
-    fn get_mut<'a>(&self, state: &'a mut dyn State) -> &'a mut Arena<Self::Component>;
-    fn stop(&self, state: &mut dyn State, id: Id<Self::Component>);
-}
-
-#[cfg(feature="dyn-context")]
-impl_stop_and_drop!(<C: Component + 'static> for Arena<C> {
-    fn is_stopped(&self) -> bool { self.items.is_empty() || C::as_component_stop().is_none() }
-
-    fn stop(state: &mut dyn State) {
-        if let Some(component_stop) = C::as_component_stop() {
-            #[cfg(feature="nightly")]
-            {
-                stacked::with_size::<256, _>(|stacked| {
-                    let arena = component_stop.get(state);
-                    let mut ids = Vec::new_in(Fallbacked(stacked, Global));
-                    ids.extend(arena.items().ids());
-                    for id in ids {
-                        component_stop.stop(state, id);
-                    }
-                });
-            }
-            #[cfg(not(feature="nightly"))]
-            {
-                let arena = component_stop.get(state);
-                let ids = arena.items().ids().collect::<Vec<_>>();
-                for id in ids {
-                    component_stop.stop(state, id);
-                }
-            }
-            let arena = component_stop.get_mut(state);
-            arena.items.clear();
-        }
-    }
-});
 
 #[doc(hidden)]
 #[macro_export]
@@ -1063,32 +997,21 @@ macro_rules! Component {
 macro_rules! Component_impl {
     (
         @args
-        [$(,)?]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::Component_impl! {
-            @impl [$vis] [$name] [$($class)?] [$($stop)?] [$($alloc)?]
-            [$($g)*] [$($r)*] [$($w)*]
-        }
-    };
-    (
-        @args
         [, alloc = $alloc:ty $(, $($token:tt)*)?]
-        [$($class:ident)?] [$($stop:ident)?] []
+        [$($class:ident)?] []
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::Component_impl! {
             @args
             [$(, $($token)*)?]
-            [$($class)?] [$($stop)?] [$alloc]
+            [$($class)?] [$alloc]
             [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
         }
     };
     (
         @args
         [, alloc = $alloc:ty $(, $($token:tt)*)?]
-        [$($class:ident)?] [$($stop:ident)?] [$alloc_:ty]
+        [$($class:ident)?] [$alloc_:ty]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::std_compile_error!("duplicated 'alloc' parameter");
@@ -1096,74 +1019,28 @@ macro_rules! Component_impl {
     (
         @args
         [, alloc = $($token:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::std_compile_error!("invalid 'alloc' parameter");
     };
     (
         @args
-        [, stop = $stop:ident $($token:tt)*]
-        [$($class:ident)?] [] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::Component_impl! {
-            @args
-            [$($token)*]
-            [$($class)?] [$stop] [$($alloc)?]
-            [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
-        }
-    };
-    (
-        @args
-        [, stop = $stop:ident $($token:tt)*]
-        [$($class:ident)?] [$stop_:ident] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::std_compile_error!("duplicated 'stop' parameter");
-    };
-    (
-        @args
-        [, stop = $stop:ident $($token:tt)*]
-        [$($class:ident)?] [$stop_:ident] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::std_compile_error!("duplicated 'stop' parameter");
-    };
-    (
-        @args
-        [, stop = $token:tt $($tail:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::unexpected_token!($token);
-        $crate::std_compile_error!("invalid 'stop' parameter");
-    };
-    (
-        @args
-        [, stop = ]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
-        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        $crate::std_compile_error!("invalid 'stop' parameter");
-    };
-    (
-        @args
         [, class = $class:ident $($token:tt)*]
-        [] [$($stop:ident)?] [$($alloc:ty)?]
+        [] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::Component_impl! {
             @args
             [$($token)*]
-            [$class] [$($stop)?] [$($alloc)?]
+            [$class] [$($alloc)?]
             [$vis] [$name] [$($g)*] [$($r)*] [$($w)*]
         }
     };
     (
         @args
         [, class = $class:ident $($token:tt)*]
-        [$class_:ident] [$($stop:ident)?] [$($alloc:ty)?]
+        [$class_:ident] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::std_compile_error!("duplicated 'class' parameter");
@@ -1171,7 +1048,7 @@ macro_rules! Component_impl {
     (
         @args
         [, class = $token:tt $($tail:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::unexpected_token!($token);
@@ -1180,7 +1057,7 @@ macro_rules! Component_impl {
     (
         @args
         [, class = ]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::std_compile_error!("invalid 'class' parameter");
@@ -1188,7 +1065,7 @@ macro_rules! Component_impl {
     (
         @args
         [, $param:ident = $($token:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::unexpected_token!($param);
@@ -1197,7 +1074,7 @@ macro_rules! Component_impl {
     (
         @args
         [, $token:tt $($tail:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::unexpected_token!($token);
@@ -1206,24 +1083,24 @@ macro_rules! Component_impl {
     (
         @args
         [$token:tt $($tail:tt)*]
-        [$($class:ident)?] [$($stop:ident)?] [$($alloc:ty)?]
+        [$($class:ident)?] [$($alloc:ty)?]
         [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
         $crate::unexpected_token!($token);
         $crate::std_compile_error!("comma expected");
     };
     (
-        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($alloc:ty)?] [] [] []
+        @impl [$vis:vis] [$name:ident] [] [$($alloc:ty)?] [] [] []
     ) => {
-        $crate::Component_impl! { @self [$name] [$($stop)?] [$($alloc)?] }
+        $crate::Component_impl! { @self [$name] [$($alloc)?] }
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($alloc:ty)?] [] [] []
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($alloc:ty)?] [] [] []
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] [] [] [])?] [$($alloc)?] [] [] [] }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($alloc)?] [] [] [] }
     };
     (
-        @impl [$vis:vis] [$name:ident] [] [$($stop:ident)?] [$($alloc:ty)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*]
+        @impl [$vis:vis] [$name:ident] [] [$($alloc:ty)?] [$($g:tt)+] [$($r:tt)+] [$($w:tt)*]
     ) => {
         $crate::std_compile_error!($crate::std_concat!(
             "\
@@ -1235,12 +1112,12 @@ macro_rules! Component_impl {
         ));
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($stop:ident)?] [$($alloc:ty)?] $g:tt $r:tt $w:tt
+        @impl [$vis:vis] [$name:ident] [$class:ident] [$($alloc:ty)?] $g:tt $r:tt $w:tt
     ) => {
-        $crate::Component_impl! { @class [$vis] [$name] [$class] [$([$stop] $g $r $w)?] [$($alloc)?] $g $r $w }
+        $crate::Component_impl! { @class [$vis] [$name] [$class] [$($alloc)?] $g $r $w }
     };
     (
-        @self [$name:ident] [$($stop:ident)?] [$($alloc:ty)?]
+        @self [$name:ident] [$($alloc:ty)?]
     ) => {
         impl $crate::ComponentClass for $name {
             fn token() -> &'static $crate::ComponentClassToken {
@@ -1249,33 +1126,17 @@ macro_rules! Component_impl {
             }
         }
 
-        $(
-            struct $stop;
-
-            impl $crate::ComponentAspect for $stop {
-                type Component = $name;
-            }
-        )?
-
         impl $crate::Component for $name {
             type Class = Self;
 
             $(
                 type Alloc = $alloc;
             )?
-
-            $(
-                fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
-                    const COMPONENT_STOP: $stop = $stop;
-                    $crate::std_option_Option::Some(&COMPONENT_STOP)
-                }
-            )?
         }
     };
     (
         @class
         [$vis:vis] [$name:ident] [$class:ident]
-        [$([$stop:ident] [$($g_:tt)*] [$($r_:tt)*] [$($w_:tt)*])?]
         [$($alloc:ty)?] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $vis enum $class { }
@@ -1287,26 +1148,11 @@ macro_rules! Component_impl {
             }
         }
 
-        $(
-            struct $stop;
-
-            impl $($g_)* $crate::ComponentAspect for $stop $($w_)* {
-                type Component = $name $($r_)*;
-            }
-        )?
-
         impl $($g)* $crate::Component for $name $($r)* $($w)* {
             type Class = $class;
 
             $(
                 type Alloc = $alloc;
-            )?
-
-            $(
-                fn as_component_stop() -> $crate::std_option_Option<&'static dyn $crate::ComponentStop<Component=Self>> {
-                    const COMPONENT_STOP: $stop = $stop;
-                    $crate::std_option_Option::Some(&COMPONENT_STOP)
-                }
             )?
         }
     };
@@ -1403,45 +1249,6 @@ macro_rules! NewtypeComponentId_impl {
         [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
         $crate::std_compile_error!("'NewtypeComponentId' supports deriving for non-empty tuple structs only");
-    };
-}
-
-#[cfg(feature="dyn-context")]
-#[macro_export]
-macro_rules! with_arena_in_state_part {
-    (
-        $StatePart:ty
-    ) => {
-        fn get<'a>(
-            &self,
-            state: &'a dyn $crate::dyn_context_State
-        ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &<dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get::<$StatePart>(state).0
-        }
-
-        fn get_mut<'a>(
-            &self,
-            state: &'a mut dyn $crate::dyn_context_State
-        ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &mut <dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get_mut::<$StatePart>(state).0
-        }
-    };
-    (
-        $StatePart:ty { . $field:ident }
-    ) => {
-        fn get<'a>(
-            &self,
-            state: &'a dyn $crate::dyn_context_State
-        ) -> &'a $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &<dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get::<$StatePart>(state). $field
-        }
-
-        fn get_mut<'a>(
-            &self,
-            state: &'a mut dyn $crate::dyn_context_State
-        ) -> &'a mut $crate::Arena<<Self as $crate::ComponentAspect>::Component> {
-            &mut <dyn $crate::dyn_context_State as $crate::dyn_context_StateExt>::get_mut::<$StatePart>(state). $field
-        }
     };
 }
 
@@ -1566,33 +1373,6 @@ mod test_nightly {
     macro_attr! {
         #[derive(Component!(alloc=&'static dyn Allocator))]
         struct TestComponent {
-        }
-    }
-}
-
-#[cfg(all(test, feature="dyn-context"))]
-mod test_dyn_context {
-    use dyn_context::{SelfState, State, Stop};
-    use macro_attr_2018::macro_attr;
-    use crate::*;
-
-    #[derive(Stop)]
-    struct TestStopArena(Arena<TestStop>);
-
-    impl SelfState for TestStopArena { }
-
-    macro_attr! {
-        #[derive(Component!(stop=TestStopImpl))]
-        struct TestStop {
-            stop: bool
-        }
-    }
-
-    impl ComponentStop for TestStopImpl {
-        with_arena_in_state_part!(TestStopArena);
-
-        fn stop(&self, state: &mut dyn State, id: Id<Self::Component>) {
-            self.get_mut(state)[id].stop = true;
         }
     }
 }
