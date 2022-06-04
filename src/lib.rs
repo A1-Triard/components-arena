@@ -969,7 +969,7 @@ macro_rules! Component {
             $crate::Component_impl {
                 @args
                 [, $($arg)*]
-                [] [] []
+                [] []
                 [$vis] [$name]
             }
             $($token)+
@@ -984,7 +984,7 @@ macro_rules! Component {
             $crate::Component_impl {
                 @args
                 [, $($arg)*]
-                [] [] []
+                [] []
                 [$vis] [$name]
             }
             $($token)+
@@ -995,6 +995,17 @@ macro_rules! Component {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! Component_impl {
+   (
+        @args
+        [$(,)?]
+        [$($class:ident)?] [$($alloc:ty)?]
+        [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        $crate::Component_impl! {
+            @impl [$vis] [$name] [$($class)?] [$($alloc)?]
+            [$($g)*] [$($r)*] [$($w)*]
+        }
+    };
     (
         @args
         [, alloc = $alloc:ty $(, $($token:tt)*)?]
@@ -1112,7 +1123,9 @@ macro_rules! Component_impl {
         ));
     };
     (
-        @impl [$vis:vis] [$name:ident] [$class:ident] [$($alloc:ty)?] $g:tt $r:tt $w:tt
+        @impl
+        [$vis:vis] [$name:ident] [$class:ident]
+        [$($alloc:ty)?] $g:tt $r:tt $w:tt
     ) => {
         $crate::Component_impl! { @class [$vis] [$name] [$class] [$($alloc)?] $g $r $w }
     };
