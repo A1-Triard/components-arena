@@ -50,7 +50,6 @@ use core::slice::{self};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use educe::Educe;
 use either::{Either, Left, Right};
-use panicking::panic;
 use phantom_type::PhantomType;
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
