@@ -12,7 +12,6 @@
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(feature="nightly", feature(explicit_generic_args_with_impl_trait))] 
 
 #![no_std]
 
