@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "components-arena"
-version = "3.3.4"
+version = "3.3.5"
 rust-version = "1.61"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Simple library for creating complex domain-specific self-referential data structures."
@@ -35,7 +35,6 @@ rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
 
 [dev-dependencies]
 macro-attr-2018 = "2.0.1"
-panicking = "0.2.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 
