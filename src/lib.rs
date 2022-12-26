@@ -1,17 +1,15 @@
-//! **Crate features**
-//!
-//! * `"nightly"`
-//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
-
-#![deny(warnings)]
-#![allow(clippy::type_complexity)]
-#![doc(test(attr(deny(warnings))))]
-#![doc(test(attr(allow(dead_code))))]
-#![doc(test(attr(allow(unused_variables))))]
-
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
+
+#![deny(warnings)]
+#![doc(test(attr(deny(warnings))))]
+#![doc(test(attr(allow(dead_code))))]
+#![doc(test(attr(allow(unused_variables))))]
+#![allow(clippy::type_complexity)]
+
+//! ## Feature flags
+#![doc=document_features::document_features!()]
 
 #![no_std]
 
