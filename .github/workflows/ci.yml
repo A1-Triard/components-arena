@@ -80,22 +80,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        features: ["", "--features=nightly"]
+        include:
+        - os: ubuntu-latest
+          triple: x86_64-unknown-linux-gnu
+        - os: windows-latest
+          triple: x86_64-pc-windows-msvc
+        - os: macOS-latest
+          triple: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
-    - run: 'echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_ENV'
-      if: "${{ matrix.os == 'ubuntu-latest' }}"
-    - run: 'echo "triple=x86_64-pc-windows-msvc" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append'
-      if: "${{ matrix.os == 'windows-latest' }}"
-    - run: 'echo "triple=x86_64-apple-darwin" >> $GITHUB_ENV'
-      if: "${{ matrix.os == 'macOS-latest' }}"
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
         override: true
-    - run: "rustup component add rust-src --toolchain nightly-${{ env.triple }}"
+    - run: "rustup component add rust-src --toolchain nightly-${{ matrix.triple }}"
     - uses: actions/checkout@v2
-    - run: "cargo +nightly build --verbose -Z build-std=core,alloc,panic_abort --target ${{ env.triple }} --release"
+    - run: "cargo +nightly build --verbose -Z build-std=core,alloc,panic_abort --target ${{ matrix.triple }} --release"
       working-directory: ensure_no_std
-    - run: "./ensure_no_std/target/${{ env.triple }}/release/ensure_no_std"
+    - run: "./ensure_no_std/target/${{ matrix.triple }}/release/ensure_no_std"
