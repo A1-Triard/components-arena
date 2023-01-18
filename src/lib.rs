@@ -326,13 +326,22 @@ impl<C: Component> ArenaItems<C> {
         self.vec.try_reserve_exact(additional)
     }
 
-    /// Returns item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
+    /// Returns reference to the item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
     ///
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
     pub fn get_id_value(&self, index: usize) -> Option<(Id<C>, &C)> {
         self.vec[index].as_ref().right().map(|(guard, item)| (Id { index, guard: *guard, phantom: PhantomType::new() }, item))
+    }
+
+    /// Returns mutable reference to the item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
+    pub fn get_id_value_mut(&mut self, index: usize) -> Option<(Id<C>, &mut C)> {
+        self.vec[index].as_mut().right().map(|(guard, item)| (Id { index, guard: *guard, phantom: PhantomType::new() }, item))
     }
 
     /// Returns [`Id`](Id) of item occupying `index` place, or `None` if there is no such.
@@ -344,13 +353,22 @@ impl<C: Component> ArenaItems<C> {
         self.vec[index].as_ref().right().map(|(guard, _)| Id { index, guard: *guard, phantom: PhantomType::new() })
     }
 
-    /// Returns item occupying `index` place, or `None` if there is no such.
+    /// Returns reference to the item occupying `index` place, or `None` if there is no such.
     ///
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
     pub fn get_value(&self, index: usize) -> Option<&C> {
         self.vec[index].as_ref().right().map(|(_, item)| item)
+    }
+
+    /// Returns mutable reference to the item occupying `index` place, or `None` if there is no such.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than or equal to [`min_capacity()`](ArenaItems::min_capacity).
+    pub fn get_value_mut(&mut self, index: usize) -> Option<&mut C> {
+        self.vec[index].as_mut().right().map(|(_, item)| item)
     }
 
     /// Returns an iterator over all item ids.
@@ -363,9 +381,19 @@ impl<C: Component> ArenaItems<C> {
         ArenaItemsValues(self.vec.iter())
     }
 
+    /// Returns a mutable iterator over all items.
+    pub fn values_mut(&mut self) -> ArenaItemsValuesMut<C> {
+        ArenaItemsValuesMut(self.vec.iter_mut())
+    }
+
     /// Returns an iterator over all items combined with their ids.
     pub fn iter(&self) -> ArenaItemsIter<C> {
         ArenaItemsIter(self.vec.iter().enumerate())
+    }
+
+    /// Returns a mutable iterator over all items combined with their ids.
+    pub fn iter_mut(&mut self) -> ArenaItemsIterMut<C> {
+        ArenaItemsIterMut(self.vec.iter_mut().enumerate())
     }
 
     /// Transforms the container into an iterator over all items ids.
@@ -420,6 +448,48 @@ impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIter<'a, C> {
 }
 
 impl<'a, C: Component> FusedIterator for ArenaItemsIter<'a, C> { }
+
+/// A mutable iterator over all items combined with their ids.
+///
+/// Usually created by the [`ArenaItems::iter_mut`](ArenaItems::iter_mut) method.
+#[derive(Debug)]
+pub struct ArenaItemsIterMut<'a, C: Component>(
+    iter::Enumerate<slice::IterMut<'a, Either<Option<usize>, (NonZeroUsize, C)>>>
+);
+
+impl<'a, C: Component> Iterator for ArenaItemsIterMut<'a, C> {
+    type Item = (Id<C>, &'a mut C);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard: *guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<'a, C: Component> DoubleEndedIterator for ArenaItemsIterMut<'a, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some((_, Left(_))) => { },
+                Some((index, Right((guard, item)))) =>
+                    return Some((Id { index, guard: *guard, phantom: PhantomType::new() }, item)),
+            }
+        }
+    }
+}
+
+impl<'a, C: Component> FusedIterator for ArenaItemsIterMut<'a, C> { }
 
 /// An iterator over all items ids.
 ///
@@ -500,6 +570,46 @@ impl<'a, C: Component> DoubleEndedIterator for ArenaItemsValues<'a, C> {
 }
 
 impl<'a, C: Component> FusedIterator for ArenaItemsValues<'a, C> { }
+
+/// A mutable iterator over all items.
+///
+/// Usually created by the [`ArenaItems::values_mut`](ArenaItems::values_mut) method.
+#[derive(Debug)]
+pub struct ArenaItemsValuesMut<'a, C: Component>(
+    slice::IterMut<'a, Either<Option<usize>, (NonZeroUsize, C)>>
+);
+
+impl<'a, C: Component> Iterator for ArenaItemsValuesMut<'a, C> {
+    type Item = &'a mut C;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.0.size_hint().1)
+    }
+}
+
+impl<'a, C: Component> DoubleEndedIterator for ArenaItemsValuesMut<'a, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next_back() {
+                None => return None,
+                Some(Left(_)) => { },
+                Some(Right((_, item))) => return Some(item),
+            }
+        }
+    }
+}
+
+impl<'a, C: Component> FusedIterator for ArenaItemsValuesMut<'a, C> { }
 
 /// An iterator over all items ids.
 ///
