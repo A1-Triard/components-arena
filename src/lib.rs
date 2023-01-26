@@ -225,6 +225,17 @@ impl<C: Component> ArenaItems<C> {
         self.vec.len() - vacancies
     }
 
+    /// Returns true iff the number of elements in the arena equals the maximum number of elements ever in the arena.
+    ///
+    /// Because the arena capacity cannot be less than `min_capacity`, the returned false means
+    /// there is space for at least one more item.
+    ///
+    /// The returned value equals to `self.len() == self.min_capacity()`, but unlike [`len`](ArenaItems::len)
+    /// this function has constant complexity.
+    pub fn len_equals_to_min_capacity(&self) -> bool {
+        self.vacancy.is_none()
+    }
+
     /// Returns `true` if the arena contains no elements.
     ///
     /// This function has linear worst-case complexity.
@@ -895,6 +906,73 @@ impl<C: Component> Arena<C> {
     /// While arena itself is unique (i.e. non-clonable) object,
     /// this special container could be cloned.
     pub fn items_mut(&mut self) -> &mut ArenaItems<C> { &mut self.items }
+
+    /// Reserves capacity for at least one more element.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `reserve`, capacity will be greater than or equal to
+    /// `self.items().len() + 1`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
+    pub fn reserve(&mut self) {
+        if self.items().len_equals_to_min_capacity() {
+            self.items_mut().reserve(1);
+        }
+    }
+
+    /// Reserves the minimum capacity for exactly one more element.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to
+    /// `self.items().len() + 1`. Does nothing if the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer [`reserve`](Arena::reserve) if future insertions are expected.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
+    pub fn reserve_exact(&mut self) {
+        if self.items().len_equals_to_min_capacity() {
+            self.items_mut().reserve_exact(1);
+        }
+    }
+
+    /// Tries to reserve capacity for at least one more element.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve`, capacity will be greater than or equal
+    /// to `self.items().len() + 1`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
+    pub fn try_reserve(&mut self) -> Result<(), TryReserveError> {
+        if self.items().len_equals_to_min_capacity() {
+            self.items_mut().try_reserve(1)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Tries to reserve capacity for exactly one more element.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `try_reserve_exact`, capacity will be greater than or equal
+    /// to `self.items().len() + 1`. Does nothing if capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests.
+    /// Therefore, capacity can not be relied upon to be precisely minimal.
+    /// Prefer [`try_reserve`](Arena::try_reserve) if future insertions are expected.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
+    pub fn try_reserve_exact(&mut self) -> Result<(), TryReserveError> {
+        if self.items().len_equals_to_min_capacity() {
+            self.items_mut().try_reserve_exact(1)
+        } else {
+            Ok(())
+        }
+    }
 
     /// Place new component into the arena.
     ///
