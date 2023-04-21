@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "components-arena"
-version = "3.5.0"
+version = "3.5.1"
 rust-version = "1.61"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Simple library for creating complex domain-specific self-referential data structures."
@@ -27,7 +27,7 @@ nightly = ["composable-allocators", "components-arena-traits/nightly"]
 
 [dependencies]
 components-arena-traits = { path = "traits", version = "1.1.0", default-features = false }
-composable-allocators = { version = "0.2.0", optional = true }
+composable-allocators = { version = "0.2.6", optional = true }
 document-features = "0.2.7"
 educe = "0.4.18"
 either = { version = "1.6.1", default-features = false }

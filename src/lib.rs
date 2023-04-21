@@ -36,6 +36,8 @@ use alloc_crate::alloc::Allocator;
 use alloc_crate::collections::TryReserveError;
 use alloc_crate::vec::{self, Vec};
 #[cfg(feature="nightly")]
+use composable_allocators::ConstDefault;
+#[cfg(feature="nightly")]
 use composable_allocators::Global as Global;
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
@@ -1039,7 +1041,7 @@ impl<C: Component> Arena<C> {
 }
 
 #[cfg(feature="nightly")]
-impl<C: Component> Default for Arena<C> where C::Alloc: Default {
+impl<C: Component> Default for Arena<C> where C::Alloc: ConstDefault {
     fn default() -> Self { Arena::new() }
 }
 
