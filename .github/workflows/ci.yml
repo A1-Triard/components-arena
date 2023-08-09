@@ -50,10 +50,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        rust: ["1.61", stable, beta, nightly]
+        rust: ["1.71", stable, beta, nightly]
         features: ["", "--features=nightly"]
         exclude:
-        - rust: "1.61"
+        - rust: "1.71"
           features: "--features=nightly"
         - rust: stable
           features: "--features=nightly"
