@@ -60,9 +60,9 @@ use rand::{RngCore, SeedableRng};
 pub use components_arena_traits::*;
 
 /// [Component class](ComponentClass) static shared data.
-/// The return type of the [`ComponentClass::token`](ComponentClass::token) function.
+/// The return type of the [`ComponentClass::token`] function.
 ///
-/// The [`ComponentClass::token`](ComponentClass::token) function
+/// The [`ComponentClass::token`] function
 /// is essential for components arena internal mechanic.
 pub struct ComponentClassToken(AtomicUsize);
 
@@ -83,7 +83,7 @@ impl Default for ComponentClassToken {
 /// the component type itself implements `ComponentClass`.
 ///
 /// For generic components it would be difficult to have
-/// an own [`ComponentClassToken`](ComponentClassToken) instance for every specialization because Rust
+/// an own [`ComponentClassToken`] instance for every specialization because Rust
 /// does not have "generic statics" feature.
 ///
 /// So, if some component type `X` is generic, normally you should introduce
@@ -114,7 +114,7 @@ pub trait ComponentClass {
 }
 
 /// An implementer of the `Component` trait is a type, whose values can be placed into
-/// [`Arena`](Arena) container.
+/// [`Arena`] container.
 ///
 /// Normally, the implementation of this trait is derived
 /// using the [`Component!`](Component!) macro.
@@ -133,7 +133,7 @@ pub trait Component {
     type Alloc: Allocator = Global;
 }
 
-/// [`Arena`](Arena) item handle.
+/// [`Arena`] item handle.
 #[derive(Educe)]
 #[educe(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Id<C: Component> {
@@ -150,8 +150,8 @@ include!("impl_id_stable.rs");
 
 type ArenaItem<C> = Either<Option<usize>, (NonZeroUsize, C)>;
 
-/// A (mostly read-only) inner container holding [`Arena`](Arena) items.
-/// While [`Arena`](Arena) itself is unique (i.e. non-clonable) object,
+/// A (mostly read-only) inner container holding [`Arena`] items.
+/// While [`Arena`] itself is unique (i.e. non-clonable) object,
 /// arena ['items'](Arena::items) could be cloned.
 #[derive(Debug, Clone)]
 pub struct ArenaItems<C: Component> {
@@ -343,7 +343,7 @@ impl<C: Component> ArenaItems<C> {
         self.vec.try_reserve_exact(additional)
     }
 
-    /// Returns reference to the item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
+    /// Returns reference to the item occupying `index` place with its [`Id`], or `None` if there is no such.
     ///
     /// # Panics
     ///
@@ -352,7 +352,7 @@ impl<C: Component> ArenaItems<C> {
         self.vec[index].as_ref().right().map(|(guard, item)| (Id { index, guard: *guard, phantom: PhantomType::new() }, item))
     }
 
-    /// Returns mutable reference to the item occupying `index` place with its [`Id`](Id), or `None` if there is no such.
+    /// Returns mutable reference to the item occupying `index` place with its [`Id`], or `None` if there is no such.
     ///
     /// # Panics
     ///
@@ -361,7 +361,7 @@ impl<C: Component> ArenaItems<C> {
         self.vec[index].as_mut().right().map(|(guard, item)| (Id { index, guard: *guard, phantom: PhantomType::new() }, item))
     }
 
-    /// Returns [`Id`](Id) of item occupying `index` place, or `None` if there is no such.
+    /// Returns [`Id`] of item occupying `index` place, or `None` if there is no such.
     ///
     /// # Panics
     ///
