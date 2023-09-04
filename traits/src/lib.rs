@@ -1,4 +1,5 @@
 #![cfg_attr(feature="nightly", feature(const_trait_impl))]
+#![cfg_attr(feature="nightly", feature(effects))]
 
 #![deny(warnings)]
 #![allow(clippy::type_complexity)]
