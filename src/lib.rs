@@ -7,7 +7,9 @@
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
+#![allow(unknown_lints)]
 #![allow(clippy::incorrect_clone_impl_on_copy_type)]
+#![allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
 #![allow(clippy::type_complexity)]
 
 //! ## Feature flags
