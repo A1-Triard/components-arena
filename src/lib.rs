@@ -40,9 +40,9 @@ use alloc_crate::alloc::Allocator;
 use alloc_crate::collections::TryReserveError;
 use alloc_crate::vec::{self, Vec};
 #[cfg(feature="nightly")]
-use composable_allocators::ConstDefault;
-#[cfg(feature="nightly")]
 use composable_allocators::Global as Global;
+#[cfg(feature="nightly")]
+use const_default::ConstDefault;
 use core::fmt::Debug;
 use core::hint::unreachable_unchecked;
 use core::iter::{self, FusedIterator};
