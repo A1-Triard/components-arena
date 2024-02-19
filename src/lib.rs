@@ -1461,7 +1461,7 @@ mod test {
     use macro_attr_2018::macro_attr;
     use quickcheck_macros::quickcheck;
 
-    use core::sync::atomic::{Ordering, AtomicI8};
+    use core::sync::atomic::{AtomicI8};
     use crate::*;
 
     macro_attr! {
