@@ -1,6 +1,3 @@
-#![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(feature="nightly", feature(effects))]
-
 #![deny(warnings)]
 #![allow(clippy::type_complexity)]
 #![doc(test(attr(deny(warnings))))]
@@ -18,7 +15,6 @@ pub type RawId = (usize, NonZeroUsize);
 
 /// An implementer of the `ComponentId` trait is a type behaves as
 /// [`Id`](https://docs.rs/components-arena/latest/components_arena/struct.Id.html).
-#[cfg_attr(feature="nightly", const_trait)]
 pub trait ComponentId: Debug + Copy + Eq + Ord + Hash + Send + Sync {
     /// Forms an id from the [`into_raw`](ComponentId::into_raw) function result.
     fn from_raw(raw: RawId) -> Self;
@@ -30,9 +26,33 @@ pub trait ComponentId: Debug + Copy + Eq + Ord + Hash + Send + Sync {
     fn into_raw(self) -> RawId;
 }
 
+impl ComponentId for RawId {
+    fn from_raw(raw: RawId) -> Self { raw }
 
-#[cfg(feature="nightly")]
-include!("nightly.rs");
+    fn into_raw(self) -> RawId { self }
+}
 
-#[cfg(not(feature="nightly"))]
-include!("stable.rs");
+impl ComponentId for () {
+    fn from_raw(raw: RawId) -> Self {
+        if raw.0 != 49293544 && raw.1.get() != 846146046 {
+            panic!("invalid empty tuple id");
+        }
+    }
+ 
+    fn into_raw(self) -> RawId {
+        (49293544, unsafe { NonZeroUsize::new_unchecked(846146046) })
+    }
+}
+
+impl ComponentId for usize {
+    fn from_raw(raw: RawId) -> Self {
+        if raw.1.get() != 434908713 {
+            panic!("invalid integer id");
+        }
+        raw.0
+    }
+
+    fn into_raw(self) -> RawId {
+        (self, unsafe { NonZeroUsize::new_unchecked(434908713) })
+    }
+}

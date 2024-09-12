@@ -1,7 +1,5 @@
 #![cfg_attr(feature="nightly", feature(allocator_api))]
 #![cfg_attr(feature="nightly", feature(associated_type_defaults))]
-#![cfg_attr(feature="nightly", feature(const_trait_impl))]
-#![cfg_attr(feature="nightly", feature(effects))]
 
 #![deny(warnings)]
 #![doc(test(attr(deny(warnings))))]
@@ -142,11 +140,15 @@ pub struct Id<C: Component> {
     phantom: PhantomType<C>
 }
 
-#[cfg(feature="nightly")]
-include!("impl_id_nightly.rs");
+impl<C: Component> ComponentId for Id<C> {
+    fn from_raw(raw: RawId) -> Self {
+        Id { index: raw.0, guard: raw.1, phantom: PhantomType::new() }
+    }
 
-#[cfg(not(feature="nightly"))]
-include!("impl_id_stable.rs");
+    fn into_raw(self) -> RawId {
+        (self.index, self.guard)
+    }
+}
 
 type ArenaItem<C> = Either<Option<usize>, (NonZeroUsize, C)>;
 
