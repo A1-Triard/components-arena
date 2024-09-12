@@ -18,14 +18,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         rust: ["1.44", stable, beta, nightly]
-        features: ["", "--features=nightly"]
-        exclude:
-        - rust: "1.44"
-          features: "--features=nightly"
-        - rust: stable
-          features: "--features=nightly"
-        - rust: beta
-          features: "--features=nightly"
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions-rs/toolchain@v1
@@ -37,13 +29,13 @@ jobs:
       uses: JesseTG/rm@v1.0.2
       with:
         path: Cargo.toml
-    - run: "cargo build --verbose --no-default-features ${{ matrix.features }}"
+    - run: "cargo build --verbose"
       working-directory: traits
-    - run: "cargo test --verbose --doc --no-default-features ${{ matrix.features }}"
+    - run: "cargo test --verbose --doc"
       working-directory: traits
-    - run: "cargo doc --verbose --no-default-features ${{ matrix.features }}"
+    - run: "cargo doc --verbose"
       working-directory: traits
-    - run: "cargo build --verbose --release --no-default-features ${{ matrix.features }}"
+    - run: "cargo build --verbose --release"
       working-directory: traits
   main:
     strategy:
