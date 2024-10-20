@@ -6,6 +6,7 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 #![allow(unknown_lints)]
+#![allow(clippy::needless_lifetimes)]
 #![allow(clippy::non_canonical_clone_impl)]
 #![allow(clippy::non_canonical_partial_ord_impl)]
 #![allow(clippy::type_complexity)]
