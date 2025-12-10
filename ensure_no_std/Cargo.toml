@@ -12,6 +12,6 @@ panic = "abort"
 
 [dependencies]
 components-arena = { path = ".." }
-composable-allocators = "0.2.9"
-exit-no-std = "0.2.0"
-macro-attr-2018 = "2.0.1"
+composable-allocators = "0.3.5"
+exit-no-std = "0.3.0"
+macro-attr-2018 = "3.0.1"

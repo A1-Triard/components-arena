@@ -392,27 +392,27 @@ impl<C: Component> ArenaItems<C> {
     }
 
     /// Returns an iterator over all item ids.
-    pub fn ids(&self) -> ArenaItemsIds<C> {
+    pub fn ids(&self) -> ArenaItemsIds<'_, C> {
         ArenaItemsIds(self.vec.iter().enumerate())
     }
 
     /// Returns an iterator over all items.
-    pub fn values(&self) -> ArenaItemsValues<C> {
+    pub fn values(&self) -> ArenaItemsValues<'_, C> {
         ArenaItemsValues(self.vec.iter())
     }
 
     /// Returns a mutable iterator over all items.
-    pub fn values_mut(&mut self) -> ArenaItemsValuesMut<C> {
+    pub fn values_mut(&mut self) -> ArenaItemsValuesMut<'_, C> {
         ArenaItemsValuesMut(self.vec.iter_mut())
     }
 
     /// Returns an iterator over all items combined with their ids.
-    pub fn iter(&self) -> ArenaItemsIter<C> {
+    pub fn iter(&self) -> ArenaItemsIter<'_, C> {
         ArenaItemsIter(self.vec.iter().enumerate())
     }
 
     /// Returns a mutable iterator over all items combined with their ids.
-    pub fn iter_mut(&mut self) -> ArenaItemsIterMut<C> {
+    pub fn iter_mut(&mut self) -> ArenaItemsIterMut<'_, C> {
         ArenaItemsIterMut(self.vec.iter_mut().enumerate())
     }
 

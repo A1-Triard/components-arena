@@ -1,12 +1,11 @@
-#![feature(start)]
-
 #![deny(warnings)]
 
 #![no_std]
+#![no_main]
 
 #[cfg(windows)]
 #[link(name="msvcrt")]
-extern { }
+extern "C" { }
 
 mod no_std {
     use composable_allocators::{AsGlobal, System};
@@ -21,7 +20,7 @@ mod no_std {
         exit(99)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C" fn rust_eh_personality() { }
 }
 
@@ -81,10 +80,11 @@ mod widget_tree {
     }
 }
 
+use core::ffi::{c_char, c_int};
 use widget_tree::*;
 
-#[start]
-pub fn main(_argc: isize, _argv: *const *const u8) -> isize {
+#[unsafe(no_mangle)]
+pub fn main(_argc: c_int, _argv: *mut *mut c_char) -> c_int {
     let tree = &mut WidgetTree::new();
     let widget = Widget::new(tree, tree.root());
     assert_eq!(widget.parent(tree), Some(tree.root()));

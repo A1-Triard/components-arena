@@ -66,7 +66,6 @@ jobs:
     - run: "cargo build --verbose --workspace --release --no-default-features ${{ matrix.features }}"
     - run: "cargo run --verbose --example widget_tree --no-default-features ${{ matrix.features }}"
     - run: "cargo run --verbose --example widget_tree_generic --no-default-features ${{ matrix.features }}"
-    - run: "cargo outdated --verbose --workspace --root-deps-only --exit-code 1 ${{ matrix.features }}"
     - run: "cargo clippy --verbose --workspace --no-default-features ${{ matrix.features }}"
   ensure_no_std:
     strategy:
