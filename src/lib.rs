@@ -1346,6 +1346,7 @@ macro_rules! Component_impl {
         [$vis:vis] [$name:ident] [$class:ident]
         [$($alloc:ty)?] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
     ) => {
+        #[allow(dead_code)]
         $vis enum $class { }
 
         impl $crate::ComponentClass for $class {
